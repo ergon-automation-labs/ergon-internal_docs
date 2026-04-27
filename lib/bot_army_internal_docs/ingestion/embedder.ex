@@ -3,41 +3,67 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   require Logger
 
   @default_model "nomic-embed-text"
-  @ollama_url "http://localhost:11434/api/embed"
-  @timeout_ms 30_000
+  @embed_timeout_ms 30_000
 
   def embed(text, model \\ nil) do
     model = model || @default_model
-    body = Jason.encode!(%{model: model, input: text})
+    reference_id = UUID.uuid4()
 
-    headers = [{"Content-Type", "application/json"}]
+    event = %{
+      "event_id" => reference_id,
+      "event" => "llm.embed.request",
+      "schema_version" => "1.0",
+      "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "source" => "bot_army_internal_docs",
+      "source_node" => node() |> Atom.to_string(),
+      "triggered_by" => "internal_docs.embedder",
+      "payload" => %{
+        "text" => text,
+        "model" => model,
+        "reference_id" => reference_id
+      }
+    }
 
-    case :httpc.request(
-           :post,
-           {String.to_charlist(@ollama_url), headers, "application/json", body},
-           [{:timeout, @timeout_ms}],
-           [{:body_format, :binary}]
-         ) do
-      {:ok, {{_http, 200, _}, _resp_headers, resp_body}} ->
-        case Jason.decode(resp_body) do
-          {:ok, %{"embeddings" => [vector | _]}} ->
+    case BotArmyRuntime.NATS.Connection.get_connection() do
+      {:ok, conn} ->
+        :ok = Gnat.sub(conn, self(), "events.llm.embedding.created")
+
+        case BotArmyRuntime.NATS.Publisher.publish("llm.embed.request", event) do
+          {:ok, _} ->
+            wait_for_embedding(conn, reference_id, @embed_timeout_ms)
+
+          {:error, reason} ->
+            Gnat.unsub(conn, self(), "events.llm.embedding.created")
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp wait_for_embedding(conn, reference_id, timeout) do
+    receive do
+      {:msg, %{topic: "events.llm.embedding.created", body: body}} ->
+        Gnat.unsub(conn, self(), "events.llm.embedding.created")
+
+        case Jason.decode(body) do
+          {:ok,
+           %{"payload" => %{"embedding" => vector}, "triggered_by_event_id" => ^reference_id}} ->
             {:ok, vector}
 
-          {:ok, other} ->
-            Logger.warning("[Embedder] Unexpected response: #{inspect(other)}")
-            {:error, :unexpected_response}
+          {:ok, _other_event} ->
+            # Not our response, keep waiting
+            wait_for_embedding(conn, reference_id, timeout)
 
           {:error, reason} ->
             {:error, {:json_decode, reason}}
         end
-
-      {:ok, {{_http, status, _}, _headers, _body}} ->
-        Logger.warning("[Embedder] Ollama HTTP #{status}")
-        {:error, {:http_error, status}}
-
-      {:error, reason} ->
-        Logger.warning("[Embedder] Ollama request failed: #{inspect(reason)}")
-        {:error, reason}
+    after
+      timeout ->
+        Gnat.unsub(conn, self(), "events.llm.embedding.created")
+        Logger.warning("[Embedder] Embed request timed out after #{timeout}ms")
+        {:error, :timeout}
     end
   end
 end

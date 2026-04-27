@@ -162,36 +162,44 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     Logger.info("[NATS.Consumer] Semantic query: #{String.slice(query_text, 0, 50)}")
     limit = Map.get(payload, "limit", 5)
 
-    case BotArmyInternalDocs.Ingestion.Embedder.embed(query_text) do
-      {:ok, vector} ->
-        case DocChunkStore.search_by_vector(vector, limit) do
-          {:ok, chunks} ->
-            results = Enum.map(chunks, &chunk_to_result/1)
+    Task.start(fn ->
+      case BotArmyInternalDocs.Ingestion.Embedder.embed(query_text) do
+        {:ok, vector} ->
+          case DocChunkStore.search_by_vector(vector, limit) do
+            {:ok, chunks} ->
+              results = Enum.map(chunks, &chunk_to_result/1)
 
-            send_reply(reply_to, %{"ok" => true, "results" => results, "count" => length(results)})
+              send_reply(reply_to, %{
+                "ok" => true,
+                "results" => results,
+                "count" => length(results)
+              })
 
-          {:error, reason} ->
-            send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
-        end
+            {:error, reason} ->
+              send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
+          end
 
-      {:error, reason} ->
-        Logger.warning("[NATS.Consumer] Query embedding failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.warning("[NATS.Consumer] Query embedding failed: #{inspect(reason)}")
 
-        case DocChunkStore.search_by_keyword(query_text, limit) do
-          {:ok, chunks} ->
-            results = Enum.map(chunks, &chunk_to_result/1)
+          case DocChunkStore.search_by_keyword(query_text, limit) do
+            {:ok, chunks} ->
+              results = Enum.map(chunks, &chunk_to_result/1)
 
-            send_reply(reply_to, %{
-              "ok" => true,
-              "results" => results,
-              "count" => length(results),
-              "fallback" => "keyword"
-            })
+              send_reply(reply_to, %{
+                "ok" => true,
+                "results" => results,
+                "count" => length(results),
+                "fallback" => "keyword"
+              })
 
-          {:error, reason2} ->
-            send_reply(reply_to, %{"ok" => false, "error" => inspect({reason, reason2})})
-        end
-    end
+            {:error, reason2} ->
+              send_reply(reply_to, %{"ok" => false, "error" => inspect({reason, reason2})})
+          end
+      end
+    end)
+
+    :ok
   end
 
   defp route_message("internal_docs.search", %{"query" => query_text} = payload, reply_to, _state) do
