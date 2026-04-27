@@ -158,35 +158,73 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
   end
 
-  defp route_message("internal_docs.query", %{"query" => query_text}, reply_to, _state) do
-    # Phase 4: semantic search via embed → vector similarity → graph traversal
-    Logger.info(
-      "[NATS.Consumer] Query received (Phase 4 stub): #{String.slice(query_text, 0, 50)}"
-    )
+  defp route_message("internal_docs.query", %{"query" => query_text} = payload, reply_to, _state) do
+    Logger.info("[NATS.Consumer] Semantic query: #{String.slice(query_text, 0, 50)}")
+    limit = Map.get(payload, "limit", 5)
 
-    send_reply(reply_to, %{
-      "ok" => true,
-      "results" => [],
-      "message" => "Semantic search not yet implemented"
-    })
+    case BotArmyInternalDocs.Ingestion.Embedder.embed(query_text) do
+      {:ok, vector} ->
+        case DocChunkStore.search_by_vector(vector, limit) do
+          {:ok, chunks} ->
+            results = Enum.map(chunks, &chunk_to_result/1)
+
+            send_reply(reply_to, %{"ok" => true, "results" => results, "count" => length(results)})
+
+          {:error, reason} ->
+            send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
+        end
+
+      {:error, reason} ->
+        Logger.warning("[NATS.Consumer] Query embedding failed: #{inspect(reason)}")
+
+        case DocChunkStore.search_by_keyword(query_text, limit) do
+          {:ok, chunks} ->
+            results = Enum.map(chunks, &chunk_to_result/1)
+
+            send_reply(reply_to, %{
+              "ok" => true,
+              "results" => results,
+              "count" => length(results),
+              "fallback" => "keyword"
+            })
+
+          {:error, reason2} ->
+            send_reply(reply_to, %{"ok" => false, "error" => inspect({reason, reason2})})
+        end
+    end
   end
 
-  defp route_message("internal_docs.search", %{"query" => query_text}, reply_to, _state) do
-    # Phase 4: keyword search via ILIKE
-    Logger.info(
-      "[NATS.Consumer] Search received (Phase 4 stub): #{String.slice(query_text, 0, 50)}"
-    )
+  defp route_message("internal_docs.search", %{"query" => query_text} = payload, reply_to, _state) do
+    Logger.info("[NATS.Consumer] Keyword search: #{String.slice(query_text, 0, 50)}")
 
-    send_reply(reply_to, %{
-      "ok" => true,
-      "results" => [],
-      "message" => "Keyword search not yet implemented"
-    })
+    limit = Map.get(payload, "limit", 10)
+
+    case DocChunkStore.search_by_keyword(query_text, limit) do
+      {:ok, chunks} ->
+        results = Enum.map(chunks, &chunk_to_result/1)
+        send_reply(reply_to, %{"ok" => true, "results" => results, "count" => length(results)})
+
+      {:error, reason} ->
+        send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
+    end
   end
 
   defp route_message(topic, _payload, _reply_to, _state) do
     Logger.debug("[NATS.Consumer] Unhandled topic: #{topic}")
     :ok
+  end
+
+  defp chunk_to_result(chunk) do
+    %{
+      "id" => chunk.id,
+      "source_id" => chunk.source_id,
+      "heading" => chunk.heading,
+      "content" => String.slice(chunk.content, 0, 500),
+      "chunk_index" => chunk.chunk_index,
+      "enrichment_status" => chunk.enrichment_status,
+      "topics" => chunk.topics,
+      "summary" => chunk.summary
+    }
   end
 
   defp source_to_map(source) do

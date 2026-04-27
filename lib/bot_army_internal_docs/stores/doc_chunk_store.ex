@@ -26,6 +26,9 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def mark_enriched(id, summary, topics),
     do: GenServer.call(__MODULE__, {:mark_enriched, id, summary, topics})
 
+  def search_by_keyword(query_text, limit \\ 10),
+    do: GenServer.call(__MODULE__, {:search_by_keyword, query_text, limit})
+
   def list_pending_embeddings,
     do: GenServer.call(__MODULE__, :list_pending_embeddings)
 
@@ -168,5 +171,19 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
       |> Repo.all()
 
     {:reply, {:ok, chunks}, state}
+  end
+
+  def handle_call({:search_by_keyword, query_text, limit}, _from, state) do
+    pattern = "%#{query_text}%"
+
+    results =
+      from(c in DocChunk,
+        where: ilike(c.content, ^pattern) or ilike(c.heading, ^pattern),
+        limit: ^limit,
+        order_by: [asc: c.chunk_index]
+      )
+      |> Repo.all()
+
+    {:reply, {:ok, results}, state}
   end
 end
