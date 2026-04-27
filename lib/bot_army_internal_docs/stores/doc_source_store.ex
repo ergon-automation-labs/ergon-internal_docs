@@ -22,10 +22,12 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
   def init(_opts) do
     Logger.info("[DocSourceStore] Starting...")
     sources = load_all()
-    Logger.info("[DocSourceStore] Loaded #{length(sources)} source(s)")
+    Logger.info("[DocSourceStore] Loaded #{map_size(sources)} source(s)")
 
-    if Enum.empty?(sources) do
-      seed_defaults()
+    state = %{sources: sources}
+
+    if map_size(sources) == 0 do
+      seed_defaults_direct()
     end
 
     {:ok, %{sources: load_all()}}
@@ -124,20 +126,16 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
     |> Enum.reduce(%{}, fn source, acc -> Map.put(acc, source.id, source) end)
   end
 
-  defp seed_defaults do
+  defp seed_defaults_direct do
     default_sources = Application.get_env(:bot_army_internal_docs, :default_sources, [])
 
     Enum.each(default_sources, fn attrs ->
       tenant_id = Map.get(attrs, "tenant_id", "00000000-0000-0000-0000-000000000001")
-
       attrs = Map.merge(attrs, %{"tenant_id" => tenant_id})
 
-      case create(attrs) do
-        {:ok, source} ->
-          Logger.info("[DocSourceStore] Seeded source: #{source.name}")
-
-        {:error, changeset} ->
-          Logger.warning("[DocSourceStore] Failed to seed: #{inspect(changeset.errors)}")
+      case %DocSource{} |> DocSource.changeset(attrs) |> Repo.insert() do
+        {:ok, source} -> Logger.info("[DocSourceStore] Seeded source: #{source.name}")
+        {:error, cs} -> Logger.warning("[DocSourceStore] Failed to seed: #{inspect(cs.errors)}")
       end
     end)
   end
