@@ -43,27 +43,43 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   end
 
   defp wait_for_embedding(conn, reference_id, timeout) do
-    receive do
-      {:msg, %{topic: "events.llm.embedding.created", body: body}} ->
-        Gnat.unsub(conn, self(), "events.llm.embedding.created")
+    deadline = System.monotonic_time(:millisecond) + timeout
 
-        case Jason.decode(body) do
-          {:ok,
-           %{"payload" => %{"embedding" => vector}, "triggered_by_event_id" => ^reference_id}} ->
-            {:ok, vector}
+    do_wait_for_embedding(conn, reference_id, deadline)
+  end
 
-          {:ok, _other_event} ->
-            # Not our response, keep waiting
-            wait_for_embedding(conn, reference_id, timeout)
+  defp do_wait_for_embedding(conn, reference_id, deadline) do
+    remaining = deadline - System.monotonic_time(:millisecond)
 
-          {:error, reason} ->
-            {:error, {:json_decode, reason}}
-        end
-    after
-      timeout ->
-        Gnat.unsub(conn, self(), "events.llm.embedding.created")
-        Logger.warning("[Embedder] Embed request timed out after #{timeout}ms")
-        {:error, :timeout}
+    if remaining <= 0 do
+      Gnat.unsub(conn, self(), "events.llm.embedding.created")
+      Logger.warning("[Embedder] Embed request timed out")
+      {:error, :timeout}
+    else
+      receive do
+        {:msg, %{topic: "events.llm.embedding.created", body: body}} ->
+          case Jason.decode(body) do
+            {:ok,
+             %{
+               "payload" => %{"embedding" => vector},
+               "triggered_by_event_id" => ^reference_id
+             }} ->
+              Gnat.unsub(conn, self(), "events.llm.embedding.created")
+              {:ok, vector}
+
+            {:ok, _other_event} ->
+              do_wait_for_embedding(conn, reference_id, deadline)
+
+            {:error, reason} ->
+              Gnat.unsub(conn, self(), "events.llm.embedding.created")
+              {:error, {:json_decode, reason}}
+          end
+      after
+        remaining ->
+          Gnat.unsub(conn, self(), "events.llm.embedding.created")
+          Logger.warning("[Embedder] Embed request timed out")
+          {:error, :timeout}
+      end
     end
   end
 end
