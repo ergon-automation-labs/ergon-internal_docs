@@ -1,0 +1,4 @@
+/_build
+/deps
+ergon_internal_docs-*.tar.gz
+*.tar.gz
