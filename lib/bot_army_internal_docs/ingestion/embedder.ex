@@ -24,7 +24,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
       }
     }
 
-    case BotArmyRuntime.NATS.Connection.get_connection() do
+    case GenServer.call(BotArmyRuntime.NATS.Connection, :get_connection, 5000) do
       {:ok, conn} ->
         :ok = Gnat.sub(conn, self(), "events.llm.embedding.created")
 

@@ -20,38 +20,42 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
         |> split_large_section()
         |> Enum.with_index(0)
 
-      Enum.map(section_chunks, fn {chunk_content, sub_idx} ->
-        chunk_index = idx * 100 + sub_idx
-        content_hash = :crypto.hash(:sha256, chunk_content) |> Base.encode16(case: :lower)
+      Enum.flat_map(section_chunks, fn {chunk_content, sub_idx} ->
+        if String.trim(chunk_content) == "" do
+          []
+        else
+          chunk_index = idx * 100 + sub_idx
+          content_hash = :crypto.hash(:sha256, chunk_content) |> Base.encode16(case: :lower)
 
-        attrs = %{
-          source_id: source_id,
-          content: chunk_content,
-          content_hash: content_hash,
-          chunk_index: chunk_index,
-          heading: section.heading,
-          enrichment_status: "pending",
-          metadata: %{path: path, name: name},
-          tenant_id: tenant_id
-        }
+          attrs = %{
+            source_id: source_id,
+            content: chunk_content,
+            content_hash: content_hash,
+            chunk_index: chunk_index,
+            heading: section.heading,
+            enrichment_status: "pending",
+            metadata: %{path: path, name: name},
+            tenant_id: tenant_id
+          }
 
-        case DocChunkStore.upsert_chunk(attrs) do
-          {:ok, chunk, :new} ->
-            Logger.debug("[Chunker] New chunk #{chunk.id} from #{name} (idx #{chunk_index})")
-            Publisher.publish_chunk_ingested(chunk, %{name: name})
-            chunk
+          case DocChunkStore.upsert_chunk(attrs) do
+            {:ok, chunk, :new} ->
+              Logger.debug("[Chunker] New chunk #{chunk.id} from #{name} (idx #{chunk_index})")
+              Publisher.publish_chunk_ingested(chunk, %{name: name})
+              [chunk]
 
-          {:ok, _chunk, :existing} ->
-            Logger.debug("[Chunker] Existing chunk from #{name} (idx #{chunk_index}), skipping")
-            nil
+            {:ok, _chunk, :existing} ->
+              Logger.debug("[Chunker] Existing chunk from #{name} (idx #{chunk_index}), skipping")
+              []
 
-          {:error, changeset} ->
-            Logger.warning("[Chunker] Failed to store chunk: #{inspect(changeset.errors)}")
-            nil
+            {:error, changeset} ->
+              Logger.warning("[Chunker] Failed to store chunk: #{inspect(changeset.errors)}")
+              []
+          end
         end
       end)
     end)
-    |> Enum.filter(& &1)
+    |> List.flatten()
   end
 
   defp split_by_headings(content) do
