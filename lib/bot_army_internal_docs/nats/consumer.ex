@@ -63,14 +63,15 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   @impl true
   def handle_info({:msg, msg}, state) do
     BotArmyRuntime.Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
-      decoded = BotArmyCore.NATS.Decoder.decode(msg.body)
-
-      case decoded do
+      case decode_message(msg.body) do
         {:ok, payload} ->
           route_message(msg.topic, payload, msg.reply_to, state)
 
         {:error, reason} ->
           Logger.warning("[NATS.Consumer] Decode failed: #{inspect(reason)}")
+
+          if msg.reply_to,
+            do: send_reply(msg.reply_to, %{"ok" => false, "error" => "decode_failed"})
       end
     end)
 
@@ -201,6 +202,22 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
+  end
+
+  defp decode_message(body) do
+    case BotArmyCore.NATS.Decoder.decode(body) do
+      {:ok, %{"payload" => payload}} ->
+        {:ok, payload}
+
+      {:ok, payload} when is_map(payload) ->
+        {:ok, payload}
+
+      {:error, _reason} ->
+        case Jason.decode(body) do
+          {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
+          error -> error
+        end
+    end
   end
 
   defp send_reply(nil, _payload), do: :ok

@@ -1,15 +1,33 @@
 defmodule BotArmyInternalDocs.PulsePublisher do
-  @moduledoc """
-  Publishes heartbeat pulses to NATS for liveness monitoring.
-  """
-
+  use GenServer
   require Logger
+
+  @version Mix.Project.config()[:version]
+  @publish_interval_ms 30 * 1000
+  @initial_delay_ms 5_000
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  @impl true
+  def init(_opts) do
+    Process.send_after(self(), :publish_pulse, @initial_delay_ms)
+    {:ok, %{}}
+  end
+
+  @impl true
+  def handle_info(:publish_pulse, state) do
+    publish_pulse()
+    Process.send_after(self(), :publish_pulse, @publish_interval_ms)
+    {:noreply, state}
+  end
 
   def publish_pulse do
     payload = %{
       "bot_id" => "internal_docs",
       "status" => "alive",
-      "version" => Mix.Project.config()[:version],
+      "version" => @version,
       "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
     }
 

@@ -24,8 +24,6 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
     sources = load_all()
     Logger.info("[DocSourceStore] Loaded #{map_size(sources)} source(s)")
 
-    state = %{sources: sources}
-
     if map_size(sources) == 0 do
       seed_defaults_direct()
     end
