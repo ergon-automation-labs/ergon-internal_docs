@@ -10,6 +10,7 @@ defmodule BotArmyInternalDocs.Application do
       |> maybe_add_repo()
       |> maybe_add_stores()
       |> maybe_add_consumer()
+      |> Enum.reverse()
 
     opts = [strategy: :one_for_one, name: BotArmyInternalDocs.Supervisor]
     Supervisor.start_link(children, opts)
