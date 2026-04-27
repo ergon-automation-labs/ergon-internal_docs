@@ -26,6 +26,9 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def mark_enriched(id, summary, topics),
     do: GenServer.call(__MODULE__, {:mark_enriched, id, summary, topics})
 
+  def list_pending_embeddings,
+    do: GenServer.call(__MODULE__, :list_pending_embeddings)
+
   @impl true
   def init(_opts) do
     Logger.info("[DocChunkStore] Starting...")
@@ -154,5 +157,16 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
           {:error, cs} -> {:reply, {:error, cs}, state}
         end
     end
+  end
+
+  def handle_call(:list_pending_embeddings, _from, state) do
+    chunks =
+      from(c in DocChunk,
+        where: c.enrichment_status == "pending" and is_nil(c.embedding_vector),
+        limit: 20
+      )
+      |> Repo.all()
+
+    {:reply, {:ok, chunks}, state}
   end
 end

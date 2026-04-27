@@ -129,10 +129,18 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
   end
 
-  defp route_message("internal_docs.ingest", _payload, reply_to, _state) do
-    # Phase 2: trigger Poller
-    Logger.info("[NATS.Consumer] Ingestion triggered (Phase 2 stub)")
-    send_reply(reply_to, %{"ok" => true, "message" => "Ingestion scheduled"})
+  defp route_message("internal_docs.ingest", payload, reply_to, _state) do
+    source_id = Map.get(payload, "source_id")
+
+    if source_id do
+      Logger.info("[NATS.Consumer] Ingestion triggered for source #{source_id}")
+      BotArmyInternalDocs.Ingestion.Poller.run_fetch(source_id)
+    else
+      Logger.info("[NATS.Consumer] Full ingestion triggered")
+      BotArmyInternalDocs.Ingestion.Poller.run_fetch()
+    end
+
+    send_reply(reply_to, %{"ok" => true, "message" => "Ingestion started"})
   end
 
   defp route_message("events.llm.embedding.created", payload, _reply_to, _state) do

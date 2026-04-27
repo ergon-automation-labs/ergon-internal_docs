@@ -10,6 +10,7 @@ defmodule BotArmyInternalDocs.Application do
       |> maybe_add_repo()
       |> maybe_add_stores()
       |> maybe_add_pulse()
+      |> maybe_add_ingestion()
       |> maybe_add_consumer()
       |> Enum.reverse()
 
@@ -35,6 +36,18 @@ defmodule BotArmyInternalDocs.Application do
 
   defp maybe_add_pulse(children) do
     if @env == :test, do: children, else: [{BotArmyInternalDocs.PulsePublisher, []} | children]
+  end
+
+  defp maybe_add_ingestion(children) do
+    if @env == :test do
+      children
+    else
+      [
+        BotArmyInternalDocs.Ingestion.Poller,
+        BotArmyInternalDocs.Ingestion.EmbedWorker
+        | children
+      ]
+    end
   end
 
   defp maybe_add_consumer(children) do
