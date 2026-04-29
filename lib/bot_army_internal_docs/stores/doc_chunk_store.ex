@@ -29,6 +29,12 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def search_by_keyword(query_text, limit \\ 10),
     do: GenServer.call(__MODULE__, {:search_by_keyword, query_text, limit})
 
+  @doc """
+  Load chunks in `[chunk_index - before, chunk_index + after]` for the same source as `chunk_id`.
+  """
+  def neighbors(chunk_id, before_n \\ 0, after_n \\ 0),
+    do: GenServer.call(__MODULE__, {:neighbors, chunk_id, before_n, after_n})
+
   def list_pending_embeddings,
     do: GenServer.call(__MODULE__, :list_pending_embeddings)
 
@@ -174,16 +180,49 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   end
 
   def handle_call({:search_by_keyword, query_text, limit}, _from, state) do
-    pattern = "%#{query_text}%"
+    words = query_text |> String.split(~r/\s+/, trim: true) |> Enum.take(5)
 
     results =
-      from(c in DocChunk,
-        where: ilike(c.content, ^pattern) or ilike(c.heading, ^pattern),
-        limit: ^limit,
-        order_by: [asc: c.chunk_index]
-      )
-      |> Repo.all()
+      if words == [] do
+        []
+      else
+        from(c in DocChunk,
+          where:
+            fragment(
+              "((?) @@ websearch_to_tsquery('english', ?))",
+              c.content,
+              ^query_text
+            ) or
+              ilike(c.content, ^"%#{hd(words)}%") or
+              ilike(c.heading, ^"%#{hd(words)}%"),
+          limit: ^limit,
+          order_by:
+            fragment("CASE WHEN ilike(?, ?) THEN 0 ELSE 1 END", c.heading, ^"%#{hd(words)}%")
+        )
+        |> Repo.all()
+      end
 
     {:reply, {:ok, results}, state}
+  end
+
+  def handle_call({:neighbors, chunk_id, before_n, after_n}, _from, state) do
+    case Repo.get(DocChunk, chunk_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      anchor ->
+        low = anchor.chunk_index - max(0, before_n)
+        high = anchor.chunk_index + max(0, after_n)
+
+        rows =
+          from(c in DocChunk,
+            where: c.source_id == ^anchor.source_id,
+            where: c.chunk_index >= ^low and c.chunk_index <= ^high,
+            order_by: [asc: c.chunk_index]
+          )
+          |> Repo.all()
+
+        {:reply, {:ok, rows}, state}
+    end
   end
 end

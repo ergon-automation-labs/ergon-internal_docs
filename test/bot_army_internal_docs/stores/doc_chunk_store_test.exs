@@ -13,6 +13,7 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStoreTest do
         {BotArmyInternalDocs.Stores.DocChunkStore, :upsert_chunk, 1},
         {BotArmyInternalDocs.Stores.DocChunkStore, :update_embedding, 2},
         {BotArmyInternalDocs.Stores.DocChunkStore, :search_by_vector, 2},
+        {BotArmyInternalDocs.Stores.DocChunkStore, :neighbors, 3},
         {BotArmyInternalDocs.Stores.DocChunkStore, :mark_enriched, 3}
       ]
 

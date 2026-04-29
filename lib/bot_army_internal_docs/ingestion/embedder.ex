@@ -27,13 +27,14 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
     case GenServer.call(BotArmyRuntime.NATS.Connection, :get_connection, 5000) do
       {:ok, conn} ->
         {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.embedding.created")
+        {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.error")
 
         case BotArmyRuntime.NATS.Publisher.publish("llm.embed.request", event) do
           {:ok, _} ->
             wait_for_embedding(conn, reference_id, @embed_timeout_ms)
 
           {:error, reason} ->
-            Gnat.unsub(conn, self(), "events.llm.embedding.created")
+            cleanup_subscriptions(conn)
             {:error, reason}
         end
 
@@ -52,34 +53,62 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
     remaining = deadline - System.monotonic_time(:millisecond)
 
     if remaining <= 0 do
-      Gnat.unsub(conn, self(), "events.llm.embedding.created")
+      cleanup_subscriptions(conn)
       Logger.warning("[Embedder] Embed request timed out")
       {:error, :timeout}
     else
       receive do
         {:msg, %{topic: "events.llm.embedding.created", body: body}} ->
           case Jason.decode(body) do
-            {:ok,
-             %{
-               "payload" => %{"embedding" => vector},
-               "triggered_by_event_id" => ^reference_id
-             }} ->
-              Gnat.unsub(conn, self(), "events.llm.embedding.created")
-              {:ok, vector}
+            {:ok, %{"payload" => %{"embedding" => vector}} = event} when is_list(vector) ->
+              if event_reference_id(event) == reference_id do
+                cleanup_subscriptions(conn)
+                {:ok, vector}
+              else
+                do_wait_for_embedding(conn, reference_id, deadline)
+              end
 
             {:ok, _other_event} ->
               do_wait_for_embedding(conn, reference_id, deadline)
 
             {:error, reason} ->
-              Gnat.unsub(conn, self(), "events.llm.embedding.created")
+              cleanup_subscriptions(conn)
+              {:error, {:json_decode, reason}}
+          end
+
+        {:msg, %{topic: "events.llm.error", body: body}} ->
+          case Jason.decode(body) do
+            {:ok, event} ->
+              if event_reference_id(event) == reference_id do
+                cleanup_subscriptions(conn)
+                Logger.warning("[Embedder] Embed request failed: #{inspect(event["payload"])}")
+                {:error, {:llm_error, Map.get(event, "payload")}}
+              else
+                do_wait_for_embedding(conn, reference_id, deadline)
+              end
+
+            {:error, reason} ->
+              cleanup_subscriptions(conn)
               {:error, {:json_decode, reason}}
           end
       after
         remaining ->
-          Gnat.unsub(conn, self(), "events.llm.embedding.created")
+          cleanup_subscriptions(conn)
           Logger.warning("[Embedder] Embed request timed out")
           {:error, :timeout}
       end
     end
+  end
+
+  defp event_reference_id(event) when is_map(event) do
+    Map.get(event, "triggered_by_event_id") ||
+      get_in(event, ["payload", "triggered_by_event_id"]) ||
+      get_in(event, ["payload", "reference_id"])
+  end
+
+  defp cleanup_subscriptions(conn) do
+    Gnat.unsub(conn, self(), "events.llm.embedding.created")
+    Gnat.unsub(conn, self(), "events.llm.error")
+    :ok
   end
 end
