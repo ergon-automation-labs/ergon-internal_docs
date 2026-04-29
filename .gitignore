@@ -1,4 +1,5 @@
 /_build
 /deps
+/.cache/
 ergon_internal_docs-*.tar.gz
 *.tar.gz
