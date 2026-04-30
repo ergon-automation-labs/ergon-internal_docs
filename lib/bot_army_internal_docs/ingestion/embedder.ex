@@ -2,12 +2,22 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   @moduledoc false
   require Logger
 
-  @default_model "nomic-embed-text"
   @embed_timeout_ms 30_000
 
   def embed(text, model \\ nil) do
-    model = model || @default_model
     reference_id = UUID.uuid4()
+
+    payload = %{
+      "text" => text,
+      "reference_id" => reference_id
+    }
+
+    payload =
+      if is_binary(model) and model != "" do
+        Map.put(payload, "model", model)
+      else
+        payload
+      end
 
     event = %{
       "event_id" => reference_id,
@@ -17,11 +27,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
       "source" => "bot_army_internal_docs",
       "source_node" => node() |> Atom.to_string(),
       "triggered_by" => "internal_docs.embedder",
-      "payload" => %{
-        "text" => text,
-        "model" => model,
-        "reference_id" => reference_id
-      }
+      "payload" => payload
     }
 
     case GenServer.call(BotArmyRuntime.NATS.Connection, :get_connection, 5000) do
