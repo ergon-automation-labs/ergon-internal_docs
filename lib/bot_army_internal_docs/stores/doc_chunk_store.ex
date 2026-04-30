@@ -181,6 +181,7 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
 
   def handle_call({:search_by_keyword, query_text, limit}, _from, state) do
     words = query_text |> String.split(~r/\s+/, trim: true) |> Enum.take(5)
+    first_word_like = if words == [], do: nil, else: "%#{hd(words)}%"
 
     results =
       if words == [] do
@@ -189,15 +190,19 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
         from(c in DocChunk,
           where:
             fragment(
-              "((?) @@ websearch_to_tsquery('english', ?))",
+              "(to_tsvector('english', coalesce(?, '')) @@ websearch_to_tsquery('english', ?))",
               c.content,
               ^query_text
             ) or
-              ilike(c.content, ^"%#{hd(words)}%") or
-              ilike(c.heading, ^"%#{hd(words)}%"),
+              ilike(c.content, ^first_word_like) or
+              ilike(c.heading, ^first_word_like),
           limit: ^limit,
           order_by:
-            fragment("CASE WHEN ilike(?, ?) THEN 0 ELSE 1 END", c.heading, ^"%#{hd(words)}%")
+            fragment(
+              "CASE WHEN coalesce(?, '') ILIKE ? THEN 0 ELSE 1 END",
+              c.heading,
+              ^first_word_like
+            )
         )
         |> Repo.all()
       end
