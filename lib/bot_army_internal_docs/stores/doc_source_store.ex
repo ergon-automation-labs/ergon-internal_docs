@@ -30,6 +30,8 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
 
     if map_size(sources) == 0 do
       seed_defaults_direct()
+    else
+      ensure_bootstrap_sources(sources)
     end
 
     {:ok, %{sources: load_all()}}
@@ -138,6 +140,28 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
       case %DocSource{} |> DocSource.changeset(attrs) |> Repo.insert() do
         {:ok, source} -> Logger.info("[DocSourceStore] Seeded source: #{source.name}")
         {:error, cs} -> Logger.warning("[DocSourceStore] Failed to seed: #{inspect(cs.errors)}")
+      end
+    end)
+  end
+
+  defp ensure_bootstrap_sources(existing_sources) do
+    existing_locations =
+      existing_sources
+      |> Map.values()
+      |> MapSet.new(& &1.location)
+
+    build_bootstrap_sources()
+    |> Enum.reject(&(Map.get(&1, "location") in existing_locations))
+    |> Enum.each(fn attrs ->
+      tenant_id = Map.get(attrs, "tenant_id", @default_tenant_id)
+      attrs = Map.merge(attrs, %{"tenant_id" => tenant_id})
+
+      case %DocSource{} |> DocSource.changeset(attrs) |> Repo.insert() do
+        {:ok, source} ->
+          Logger.info("[DocSourceStore] Added bootstrap source: #{source.name}")
+
+        {:error, cs} ->
+          Logger.warning("[DocSourceStore] Failed to add bootstrap source: #{inspect(cs.errors)}")
       end
     end)
   end
