@@ -36,3 +36,9 @@ if System.get_env("BOT_ARMY_INTERNAL_DOCS_DEFAULT_SOURCES") do
       :ok
   end
 end
+
+if System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH") do
+  config :bot_army_internal_docs,
+         :para_docs_path,
+         System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH")
+end

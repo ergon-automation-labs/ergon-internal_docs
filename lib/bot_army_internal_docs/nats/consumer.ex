@@ -48,6 +48,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  def embedding_chunk_id(payload) when is_map(payload) do
+    Map.get(payload, "chunk_id") || Map.get(payload, "reference_id") ||
+      Map.get(payload, "card_id")
+  end
+
   @impl true
   def init(opts) do
     tenant_id = Keyword.get(opts, :tenant_id)
@@ -170,7 +175,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   end
 
   defp route_message("events.llm.embedding.created", payload, _reply_to, _state) do
-    chunk_id = Map.get(payload, "chunk_id") || Map.get(payload, "reference_id")
+    chunk_id = embedding_chunk_id(payload)
     vector = Map.get(payload, "embedding")
 
     if chunk_id && vector do

@@ -30,6 +30,7 @@ config :bot_army_internal_docs, BotArmyInternalDocs.Repo,
 
 # Default doc sources (JSON from env, or empty)
 config :bot_army_internal_docs, :default_sources, []
+config :bot_army_internal_docs, :para_docs_path, "docs/personal_os"
 
 if File.exists?("config/#{Mix.env()}.exs") do
   import_config "#{Mix.env()}.exs"

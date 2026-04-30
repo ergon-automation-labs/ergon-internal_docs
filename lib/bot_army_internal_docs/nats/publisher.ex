@@ -59,7 +59,8 @@ defmodule BotArmyInternalDocs.NATS.Publisher do
       base_event("llm.embed.request", "internal_docs.embed_worker")
       |> Map.put("payload", %{
         "text" => content,
-        "card_id" => chunk_id,
+        "chunk_id" => chunk_id,
+        "reference_id" => chunk_id,
         "model" => "nomic-embed-text"
       })
 

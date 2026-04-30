@@ -87,6 +87,8 @@ Load a full chunk (or a bounded prefix) and optional neighboring chunks for the 
 | `internal_docs.ingest` | request-reply | Trigger fetch/ingest (optionally `source_id`) |
 | `events.llm.embedding.created` | subscribe | Embedding callback for ingested chunks |
 
+Embedding callbacks accept chunk identifiers under `chunk_id`, `reference_id`, or legacy `card_id`.
+
 ---
 
 ## Example: query then expand

@@ -5,6 +5,9 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
   alias BotArmyInternalDocs.Repo
   alias BotArmyInternalDocs.Schemas.DocSource
 
+  @default_tenant_id "00000000-0000-0000-0000-000000000001"
+  @default_para_path "docs/personal_os"
+
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -17,6 +20,7 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
   def get_by_location(location), do: GenServer.call(__MODULE__, {:get_by_location, location})
   def enable(id), do: GenServer.call(__MODULE__, {:enable, id})
   def disable(id), do: GenServer.call(__MODULE__, {:disable, id})
+  def bootstrap_sources, do: build_bootstrap_sources()
 
   @impl true
   def init(_opts) do
@@ -125,10 +129,10 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
   end
 
   defp seed_defaults_direct do
-    default_sources = Application.get_env(:bot_army_internal_docs, :default_sources, [])
+    default_sources = build_bootstrap_sources()
 
     Enum.each(default_sources, fn attrs ->
-      tenant_id = Map.get(attrs, "tenant_id", "00000000-0000-0000-0000-000000000001")
+      tenant_id = Map.get(attrs, "tenant_id", @default_tenant_id)
       attrs = Map.merge(attrs, %{"tenant_id" => tenant_id})
 
       case %DocSource{} |> DocSource.changeset(attrs) |> Repo.insert() do
@@ -136,5 +140,39 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
         {:error, cs} -> Logger.warning("[DocSourceStore] Failed to seed: #{inspect(cs.errors)}")
       end
     end)
+  end
+
+  defp build_bootstrap_sources do
+    configured =
+      Application.get_env(:bot_army_internal_docs, :default_sources, [])
+      |> Enum.map(&normalize_source/1)
+      |> Enum.reject(&is_nil/1)
+
+    para =
+      para_source()
+      |> List.wrap()
+
+    (configured ++ para)
+    |> Enum.uniq_by(&Map.get(&1, "location"))
+  end
+
+  defp normalize_source(attrs) when is_map(attrs), do: attrs
+  defp normalize_source(_), do: nil
+
+  defp para_source do
+    path = Application.get_env(:bot_army_internal_docs, :para_docs_path, @default_para_path)
+    expanded = Path.expand(path)
+
+    if File.dir?(expanded) do
+      %{
+        "source_type" => "local_file",
+        "location" => expanded,
+        "name" => "personal_os_docs",
+        "category" => "personal_os",
+        "tags" => ["para", "personal_os", "fractional"]
+      }
+    else
+      nil
+    end
   end
 end
