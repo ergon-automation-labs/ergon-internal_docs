@@ -33,6 +33,12 @@ defmodule BotArmyInternalDocs.PulsePublisher do
 
     case BotArmyRuntime.NATS.Publisher.publish("bot.internal_docs.pulse", payload) do
       {:ok, _} ->
+        BotArmyRuntime.SynapseHealth.publish(
+          source: "bot_army_internal_docs",
+          service: "internal_docs",
+          health_signal: "nominal"
+        )
+
         Logger.debug("[PulsePublisher] Pulse sent")
         :ok
 
