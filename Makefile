@@ -1,6 +1,6 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 
-.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full \
+.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full \ push-and-publish
        credo dialyzer coverage check format clean release publish-release \
        setup-hooks setup-db reset-db logs status
 
@@ -31,7 +31,7 @@ help:
 	@echo "  make logs            - Tail server log"
 	@echo "  make status          - Check if bot is running"
 	@echo ""
-	@echo "Release commands (normally automatic via git hook):"
+	@echo "Release commands:"
 	@echo "  make release         - Build OTP release locally"
 	@echo "  make publish-release - Build, package, and publish to GitHub"
 	@echo ""
@@ -114,6 +114,9 @@ publish-release: release
 		--notes "Internal Docs Bot release v$$VERSION" \
 		--draft=false; \
 	echo "Release published"
+
+push-and-publish:
+	@git push && $(MAKE) publish-release
 
 logs:
 	@$(SCRIPTS_DIRECTORY)/tail_bot_log.sh
