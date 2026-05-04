@@ -107,16 +107,29 @@ release: check
 	@echo "Release built: _build/prod/rel/internal_docs_bot/"
 
 publish-release: release
-	@echo "Publishing release to GitHub..."
-	VERSION=$$(cat _build/prod/rel/internal_docs_bot/releases/RELEASES | tail -1 | cut -d' ' -f2); \
+	@set -e; \
+	VERSION=$$(sed -n 's/^[[:space:]]*version:[[:space:]]*"\([^"]*\)".*/\1/p' mix.exs | head -n 1); \
+	if [ -z "$$VERSION" ]; then \
+		echo "Failed to resolve version from mix.exs"; \
+		exit 1; \
+	fi; \
+	TARBALL=internal_docs_bot-$$VERSION.tar.gz; \
 	echo "Version: $$VERSION"; \
-	tar -czf internal_docs_bot-$$VERSION.tar.gz -C _build/prod/rel internal_docs_bot/; \
-	gh release create v$$VERSION internal_docs_bot-$$VERSION.tar.gz \
-		--title "Release v$$VERSION" \
-		--notes "Internal Docs Bot release v$$VERSION" \
-		--draft=false; \
-	echo "Release published"
-
+	echo "Creating release tarball..."; \
+	tar -czf "$$TARBALL" -C _build/prod/rel internal_docs_bot/; \
+	echo "✓ Tarball created: $$TARBALL"; \
+	echo ""; \
+	echo "Creating GitHub release v$$VERSION..."; \
+	if gh release view "v$$VERSION" >/dev/null 2>&1; then \
+		gh release upload "v$$VERSION" "$$TARBALL" --clobber; \
+	else \
+		gh release create "v$$VERSION" "$$TARBALL" \
+			--title "Release v$$VERSION" \
+			--notes "Internal Docs Bot Elixir release v$$VERSION. Download and deploy with Jenkins." \
+			--draft=false; \
+	fi; \
+	echo "✓ Release published to GitHub"; \
+	echo "" 
 push-and-publish:
 	@git push && $(MAKE) publish-release
 
