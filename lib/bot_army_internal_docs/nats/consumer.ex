@@ -7,6 +7,8 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
   @registry_heartbeat_ms 20_000
   @version Mix.Project.config()[:version]
+  @query_embedding_cache_ttl_ms 10 * 60 * 1000
+  @query_embedding_cache_max_entries 200
 
   # Hard caps for internal_docs.chunk.get response size (characters)
   @chunk_get_max_hard 500_000
@@ -73,7 +75,8 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
            conn: conn,
            subscriptions: subscriptions,
            tenant_id: tenant_id,
-           registry_registered?: true
+           registry_registered?: true,
+           query_embedding_cache: %{}
          }}
 
       {:error, reason} ->
@@ -107,6 +110,19 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
 
     {:noreply, state}
+  end
+
+  def handle_info({:cache_query_embedding, normalized_query, vector}, state)
+      when is_binary(normalized_query) and is_list(vector) do
+    now_ms = System.monotonic_time(:millisecond)
+
+    cache =
+      state.query_embedding_cache
+      |> prune_query_embedding_cache(now_ms)
+      |> Map.put(normalized_query, %{vector: vector, inserted_at_ms: now_ms})
+      |> maybe_trim_query_embedding_cache()
+
+    {:noreply, %{state | query_embedding_cache: cache}}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
@@ -189,22 +205,57 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
   end
 
-  defp route_message("internal_docs.query", %{"query" => query_text} = payload, reply_to, _state) do
+  defp route_message("internal_docs.query", %{"query" => query_text} = payload, reply_to, state) do
     Logger.info("[NATS.Consumer] Semantic query: #{String.slice(query_text, 0, 50)}")
     limit = Map.get(payload, "limit", 5)
 
+    normalized_query = normalize_query(query_text)
+    now_ms = System.monotonic_time(:millisecond)
+
+    {cached_vector, pruned_cache} =
+      get_cached_query_embedding(state.query_embedding_cache, normalized_query, now_ms)
+
+    embedding_cache_hit = not is_nil(cached_vector)
+    state = %{state | query_embedding_cache: pruned_cache}
+
     Task.start(fn ->
-      case BotArmyInternalDocs.Ingestion.Embedder.embed(query_text) do
+      total_started_ms = System.monotonic_time(:millisecond)
+
+      {vector_result, embed_duration_ms} =
+        if embedding_cache_hit do
+          {{:ok, cached_vector}, 0}
+        else
+          embed_started_ms = System.monotonic_time(:millisecond)
+          result = BotArmyInternalDocs.Ingestion.Embedder.embed(query_text)
+          duration_ms = System.monotonic_time(:millisecond) - embed_started_ms
+          {result, duration_ms}
+        end
+
+      case vector_result do
         {:ok, vector} ->
+          search_started_ms = System.monotonic_time(:millisecond)
+
           case DocChunkStore.search_by_vector(vector, limit) do
             {:ok, chunks} ->
+              search_duration_ms = System.monotonic_time(:millisecond) - search_started_ms
+              total_duration_ms = System.monotonic_time(:millisecond) - total_started_ms
               results = Enum.map(chunks, &chunk_to_result/1)
 
               send_reply(reply_to, %{
                 "ok" => true,
                 "results" => results,
-                "count" => length(results)
+                "count" => length(results),
+                "embedding_cache" => if(embedding_cache_hit, do: "hit", else: "miss"),
+                "timing_ms" => %{
+                  "embed" => embed_duration_ms,
+                  "search" => search_duration_ms,
+                  "total" => total_duration_ms
+                }
               })
+
+              unless embedding_cache_hit do
+                send(self(), {:cache_query_embedding, normalized_query, vector})
+              end
 
             {:error, reason} ->
               send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
@@ -213,15 +264,26 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         {:error, reason} ->
           Logger.warning("[NATS.Consumer] Query embedding failed: #{inspect(reason)}")
 
+          search_started_ms = System.monotonic_time(:millisecond)
+
           case DocChunkStore.search_by_keyword(query_text, limit) do
             {:ok, chunks} ->
+              search_duration_ms = System.monotonic_time(:millisecond) - search_started_ms
+              total_duration_ms = System.monotonic_time(:millisecond) - total_started_ms
               results = Enum.map(chunks, &chunk_to_result/1)
 
               send_reply(reply_to, %{
                 "ok" => true,
                 "results" => results,
                 "count" => length(results),
-                "fallback" => "keyword"
+                "fallback" => "keyword",
+                "embedding_cache" => if(embedding_cache_hit, do: "hit", else: "miss"),
+                "semantic_error" => inspect(reason),
+                "timing_ms" => %{
+                  "embed" => embed_duration_ms,
+                  "search" => search_duration_ms,
+                  "total" => total_duration_ms
+                }
               })
 
             {:error, reason2} ->
@@ -230,7 +292,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       end
     end)
 
-    :ok
+    state
   end
 
   defp route_message("internal_docs.chunk.get", payload, reply_to, _state)
@@ -381,6 +443,46 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
           error -> error
         end
     end
+  end
+
+  defp normalize_query(query_text) when is_binary(query_text) do
+    query_text
+    |> String.trim()
+    |> String.downcase()
+    |> String.replace(~r/\s+/, " ")
+  end
+
+  defp get_cached_query_embedding(cache, normalized_query, now_ms) do
+    pruned = prune_query_embedding_cache(cache, now_ms)
+
+    vector =
+      case Map.get(pruned, normalized_query) do
+        %{vector: cached_vector} when is_list(cached_vector) -> cached_vector
+        _ -> nil
+      end
+
+    {vector, pruned}
+  end
+
+  defp prune_query_embedding_cache(cache, now_ms) do
+    Enum.reduce(cache, %{}, fn {query, %{vector: vector, inserted_at_ms: inserted_at_ms}}, acc ->
+      if now_ms - inserted_at_ms <= @query_embedding_cache_ttl_ms do
+        Map.put(acc, query, %{vector: vector, inserted_at_ms: inserted_at_ms})
+      else
+        acc
+      end
+    end)
+  end
+
+  defp maybe_trim_query_embedding_cache(cache)
+       when map_size(cache) <= @query_embedding_cache_max_entries,
+       do: cache
+
+  defp maybe_trim_query_embedding_cache(cache) do
+    cache
+    |> Enum.sort_by(fn {_query, %{inserted_at_ms: inserted_at_ms}} -> inserted_at_ms end, :desc)
+    |> Enum.take(@query_embedding_cache_max_entries)
+    |> Map.new()
   end
 
   defp send_reply(nil, _payload), do: :ok
