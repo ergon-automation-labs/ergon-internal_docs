@@ -12,14 +12,6 @@ defmodule BotArmyInternalDocs.Repo.Migrations.ResizeDocChunkEmbeddingVectorTo409
     execute(
       "ALTER TABLE doc_chunks ALTER COLUMN embedding_vector TYPE vector(#{@new_embedding_dims})"
     )
-
-    create(
-      index(:doc_chunks, ["embedding_vector vector_cosine_ops"],
-        using: :hnsw,
-        name: :doc_chunks_embedding_hnsw,
-        options: "m = 16, ef_construction = 64"
-      )
-    )
   end
 
   def down do
