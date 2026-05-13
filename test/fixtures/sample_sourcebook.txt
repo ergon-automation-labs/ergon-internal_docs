@@ -1,0 +1,84 @@
+SAMPLE SRD-STYLE SOURCEBOOK (synthetic fixture, not a real RPG product)
+=======================================================================
+
+This file is hand-authored synthetic content shaped to look like a tabletop
+RPG sourcebook for the purposes of testing the theme-extraction pipeline.
+No real RPG IP is reproduced here. Use this fixture in unit tests; for
+end-to-end smoke against actual sourcebooks, point the operator command at
+a real PDF outside the repo.
+
+Setting Overview
+----------------
+
+The realm of Verdant Hollow is a windswept patchwork of moorland, fen, and
+old growth forest, ruled in name by the Council of Mossy Tor but in practice
+by whichever Lordmagus has paid the corvée this season. The tone is wary
+and folkloric; people speak in proverbs and check the road over their
+shoulder. Magic is older than the Council, polite to no one, and arrives
+through bargains rather than spells.
+
+Core Mechanic
+-------------
+
+Resolution uses a single d12 plus the relevant Aspect rating, against a
+Reckoning set by the Hollowmaster. Ties go to the player. Critical
+successes occur on a natural 12; critical failures on a natural 1. There
+are no degrees of success in this system; success is success.
+
+Actions and Common Verbs
+------------------------
+
+When a hero strikes in combat, we call it a swing. When they ward themselves
+or another, that is a holding. To press an opponent or NPC for information
+or a deal is to barter. To inspire allies is to call the chorus. To study a
+clue or environment is to read the omen. To slip past notice is to walk
+unseen. To use a craft or trade is to ply the trade. Movement of any kind
+is a stride.
+
+Factions and Personae
+---------------------
+
+The Council Warden carries a wax-sealed warrant and a heavy oak baton.
+They speak quietly, kindly, and entirely without warmth — a person used to
+having the last word in a conversation that no longer feels like a
+conversation.
+
+The Hedgewitch travels light, with a satchel of dried herbs, a glass-eye
+fetish, and a chipped iron knife. Their demeanor is brisk, practical, and
+unimpressed by titles. They prefer payment in kind.
+
+The Lordmagus-At-Arms is imperious, armored in lacquered plate and a
+high-collared cloak. They carry a long pistol cast in three metals and a
+court-sealed dueling parchment. They have not been refused since they were
+a child.
+
+The Tor-Shepherd is weather-creased and patient, carries a curved staff,
+a flock-counter of carved bone, and a clay flute. They speak in old proverbs
+and rarely without good reason.
+
+The Drowned-Mason is a journeyman returned from places that should have
+drowned them. They carry a brass plumb-line, a cracked compass, and a
+sketchbook of impossible architecture. Their demeanor is unhurried; their
+quietness has weight.
+
+Scene Atmosphere
+----------------
+
+Scene introductions in Verdant Hollow lean on weather, soundscape, and
+small uncomfortable details: the wet smell of peat smoke, a lapwing
+calling somewhere too close to the door, a candle that gutters when no one
+is breathing on it.
+
+Combat begins with stillness, then noise. Crows lift from the trees in a
+single shape. Steel clears leather. A breath later, no one is where they
+were.
+
+Rest scenes are spare. The hearth ticks. Someone is sharpening something
+in another room. The night outside the window is honestly dark.
+
+Victory looks like a careful inventory: who is still standing, what is
+ruined, what can be carried away before the road takes notice. The
+landscape does not celebrate.
+
+Defeat looks like a long walk back, knowing the Council will hear about it
+before you do.

@@ -43,6 +43,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       subject: "internal_docs.chunk.get",
       type: :request_reply,
       description: "Fetch full chunk text + optional neighboring chunks by index"
+    },
+    %{
+      subject: "docs.theme.extract",
+      type: :request_reply,
+      description: "Extract a draft RPG theme map from a sourcebook PDF or text path"
     }
   ]
 
@@ -360,10 +365,65 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
   end
 
+  defp route_message("docs.theme.extract", payload, reply_to, _state) do
+    Task.start(fn -> handle_theme_extract(payload, reply_to) end)
+  end
+
   defp route_message(topic, _payload, _reply_to, _state) do
     Logger.debug("[NATS.Consumer] Unhandled topic: #{topic}")
     :ok
   end
+
+  defp handle_theme_extract(payload, reply_to) do
+    name = Map.get(payload, "theme_name") || Map.get(payload, "name")
+    pdf_path = Map.get(payload, "pdf_path") || Map.get(payload, "path")
+    inline_text = Map.get(payload, "text")
+
+    cond do
+      not is_binary(name) or name == "" ->
+        send_reply(reply_to, %{"ok" => false, "error" => "missing theme_name"})
+
+      is_binary(inline_text) and inline_text != "" ->
+        do_extract(inline_text, name, payload, reply_to)
+
+      is_binary(pdf_path) and pdf_path != "" ->
+        case BotArmyInternalDocs.Ingestion.Fetchers.LocalFile.fetch(pdf_path) do
+          {:ok, [%{content: content} | _]} ->
+            do_extract(content, name, payload, reply_to)
+
+          {:ok, []} ->
+            send_reply(reply_to, %{"ok" => false, "error" => "no documents at path"})
+
+          {:error, reason} ->
+            send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
+        end
+
+      true ->
+        send_reply(reply_to, %{"ok" => false, "error" => "missing pdf_path or text"})
+    end
+  end
+
+  defp do_extract(text, name, payload, reply_to) do
+    opts =
+      []
+      |> maybe_put_opt(:prompt_budget_chars, payload["prompt_budget_chars"])
+      |> maybe_put_opt(:timeout_ms, payload["timeout_ms"])
+
+    {:ok, %{theme: theme, errors: errors, warnings: warnings}} =
+      BotArmyInternalDocs.Skills.ThemeExtractor.extract(text, opts)
+
+    send_reply(reply_to, %{
+      "ok" => true,
+      "name" => name,
+      "theme" => theme,
+      "errors" => errors,
+      "warnings" => warnings
+    })
+  end
+
+  defp maybe_put_opt(opts, _key, nil), do: opts
+  defp maybe_put_opt(opts, key, value) when is_integer(value), do: Keyword.put(opts, key, value)
+  defp maybe_put_opt(opts, _key, _other), do: opts
 
   defp chunk_to_result(chunk) do
     %{
