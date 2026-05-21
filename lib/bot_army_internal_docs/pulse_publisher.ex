@@ -3,8 +3,8 @@ defmodule BotArmyInternalDocs.PulsePublisher do
   use GenServer
   require Logger
 
-  alias Publisher
-  alias SynapseHealth
+  alias BotArmyRuntime.NATS.Publisher
+  alias BotArmyRuntime.SynapseHealth
 
   @version Mix.Project.config()[:version]
   @publish_interval_ms 30 * 1000

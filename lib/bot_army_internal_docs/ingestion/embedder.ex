@@ -2,7 +2,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   @moduledoc false
   require Logger
 
-  alias Publisher
+  alias BotArmyRuntime.NATS.Publisher
 
   @embed_timeout_ms 30_000
 
