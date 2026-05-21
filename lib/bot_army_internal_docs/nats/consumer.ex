@@ -214,6 +214,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       case DocChunkStore.update_embedding(chunk_id, vector) do
         {:ok, _} ->
           Logger.debug("[NATS.Consumer] Embedding stored for chunk #{chunk_id}")
+          DocChunkStore.mark_embedded(chunk_id)
 
         {:error, reason} ->
           Logger.warning("[NATS.Consumer] Embedding store failed: #{inspect(reason)}")

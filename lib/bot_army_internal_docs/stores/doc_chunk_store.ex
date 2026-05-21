@@ -21,6 +21,9 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def update_embedding(id, vector),
     do: GenServer.call(__MODULE__, {:update_embedding, id, vector})
 
+  def mark_embedded(id),
+    do: GenServer.call(__MODULE__, {:mark_embedded, id})
+
   def search_by_vector(vector, limit \\ 5),
     do: GenServer.call(__MODULE__, {:search_by_vector, vector, limit})
 
@@ -132,6 +135,22 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
 
         chunk
         |> Ecto.Changeset.change(%{field => vector, embedded_at: DateTime.utc_now()})
+        |> Repo.update()
+        |> case do
+          {:ok, updated} -> {:reply, {:ok, updated}, state}
+          {:error, cs} -> {:reply, {:error, cs}, state}
+        end
+    end
+  end
+
+  def handle_call({:mark_embedded, id}, _from, state) do
+    case Repo.get(DocChunk, id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      chunk ->
+        chunk
+        |> Ecto.Changeset.change(%{enrichment_status: "embedded"})
         |> Repo.update()
         |> case do
           {:ok, updated} -> {:reply, {:ok, updated}, state}
