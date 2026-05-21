@@ -206,6 +206,10 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     chunk_id = embedding_chunk_id(payload)
     vector = Map.get(payload, "embedding")
 
+    Logger.debug(
+      "[NATS.Consumer] Embedding event - chunk_id: #{inspect(chunk_id)}, has_vector: #{is_list(vector)}"
+    )
+
     if chunk_id && vector do
       case DocChunkStore.update_embedding(chunk_id, vector) do
         {:ok, _} ->
@@ -214,6 +218,8 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         {:error, reason} ->
           Logger.warning("[NATS.Consumer] Embedding store failed: #{inspect(reason)}")
       end
+    else
+      Logger.warning("[NATS.Consumer] Embedding missing chunk_id or vector")
     end
   end
 
