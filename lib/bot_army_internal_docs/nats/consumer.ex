@@ -451,7 +451,8 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       "chunk_index" => chunk.chunk_index,
       "enrichment_status" => chunk.enrichment_status,
       "topics" => chunk.topics,
-      "summary" => chunk.summary
+      "summary" => chunk.summary,
+      "metadata" => chunk.metadata
     }
   end
 
