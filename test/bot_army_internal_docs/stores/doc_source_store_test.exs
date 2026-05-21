@@ -2,7 +2,7 @@ defmodule DocSourceStoreTest do
   use ExUnit.Case, async: false
   @moduletag :stores
 
-  alias DocSourceStore
+  alias BotArmyInternalDocs.Stores.DocSourceStore
 
   # Phase 1: unit tests without DB (store requires Repo)
   # Integration tests will run with real DB when configured
