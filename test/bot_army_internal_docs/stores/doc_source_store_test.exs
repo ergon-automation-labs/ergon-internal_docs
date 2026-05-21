@@ -1,6 +1,8 @@
-defmodule BotArmyInternalDocs.Stores.DocSourceStoreTest do
+defmodule DocSourceStoreTest do
   use ExUnit.Case, async: false
   @moduletag :stores
+
+  alias DocSourceStore
 
   # Phase 1: unit tests without DB (store requires Repo)
   # Integration tests will run with real DB when configured
@@ -8,14 +10,14 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStoreTest do
   describe "API surface" do
     test "exports expected public functions" do
       funcs = [
-        {BotArmyInternalDocs.Stores.DocSourceStore, :list, 0},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :get, 1},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :create, 1},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :update, 2},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :remove, 1},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :get_by_location, 1},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :enable, 1},
-        {BotArmyInternalDocs.Stores.DocSourceStore, :disable, 1}
+        {DocSourceStore, :list, 0},
+        {DocSourceStore, :get, 1},
+        {DocSourceStore, :create, 1},
+        {DocSourceStore, :update, 2},
+        {DocSourceStore, :remove, 1},
+        {DocSourceStore, :get_by_location, 1},
+        {DocSourceStore, :enable, 1},
+        {DocSourceStore, :disable, 1}
       ]
 
       for {mod, fun, arity} <- funcs do
@@ -53,7 +55,7 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStoreTest do
       Application.put_env(:bot_army_internal_docs, :default_sources, [])
       Application.put_env(:bot_army_internal_docs, :para_docs_path, para_path)
 
-      sources = BotArmyInternalDocs.Stores.DocSourceStore.bootstrap_sources()
+      sources = DocSourceStore.bootstrap_sources()
 
       assert Enum.any?(sources, fn source ->
                source["location"] == Path.expand(para_path) and
@@ -81,7 +83,7 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStoreTest do
       Application.put_env(:bot_army_internal_docs, :default_sources, [source])
       Application.put_env(:bot_army_internal_docs, :para_docs_path, para_path)
 
-      sources = BotArmyInternalDocs.Stores.DocSourceStore.bootstrap_sources()
+      sources = DocSourceStore.bootstrap_sources()
 
       same_location_count =
         sources

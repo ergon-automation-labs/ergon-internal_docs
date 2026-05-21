@@ -2,6 +2,8 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   @moduledoc false
   require Logger
 
+  alias Publisher
+
   @embed_timeout_ms 30_000
 
   def embed(text, model \\ nil) do
@@ -35,7 +37,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
         {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.embedding.created")
         {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.error")
 
-        case BotArmyRuntime.NATS.Publisher.publish("llm.embed.request", event) do
+        case Publisher.publish("llm.embed.request", event) do
           {:ok, _} ->
             wait_for_embedding(conn, reference_id, @embed_timeout_ms)
 

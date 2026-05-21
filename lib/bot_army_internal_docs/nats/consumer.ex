@@ -3,6 +3,12 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   use GenServer
   require Logger
 
+  alias BotArmyCore.NATS.Decoder
+  alias BotArmyInternalDocs.Ingestion.Embedder
+  alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
+  alias BotArmyInternalDocs.Ingestion.Poller
+  alias BotArmyInternalDocs.NATS.Publisher
+  alias BotArmyInternalDocs.Skills.ThemeExtractor
   alias BotArmyInternalDocs.Stores.{DocChunkStore, DocSourceStore}
   alias BotArmyRuntime.NATS.Connection
 
@@ -147,7 +153,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   defp route_message("internal_docs.source.add", payload, reply_to, _state) do
     case DocSourceStore.create(payload) do
       {:ok, source} ->
-        BotArmyInternalDocs.NATS.Publisher.publish_source_added(source)
+        Publisher.publish_source_added(source)
         send_reply(reply_to, %{"ok" => true, "source" => source_to_map(source)})
 
       {:error, changeset} ->
@@ -187,10 +193,10 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
     if source_id do
       Logger.info("[NATS.Consumer] Ingestion triggered for source #{source_id}")
-      BotArmyInternalDocs.Ingestion.Poller.run_fetch(source_id)
+      Poller.run_fetch(source_id)
     else
       Logger.info("[NATS.Consumer] Full ingestion triggered")
-      BotArmyInternalDocs.Ingestion.Poller.run_fetch()
+      Poller.run_fetch()
     end
 
     send_reply(reply_to, %{"ok" => true, "message" => "Ingestion started"})
@@ -232,7 +238,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
           {{:ok, cached_vector}, 0}
         else
           embed_started_ms = System.monotonic_time(:millisecond)
-          result = BotArmyInternalDocs.Ingestion.Embedder.embed(query_text)
+          result = Embedder.embed(query_text)
           duration_ms = System.monotonic_time(:millisecond) - embed_started_ms
           {result, duration_ms}
         end
@@ -388,7 +394,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         do_extract(inline_text, name, payload, reply_to)
 
       is_binary(pdf_path) and pdf_path != "" ->
-        case BotArmyInternalDocs.Ingestion.Fetchers.LocalFile.fetch(pdf_path) do
+        case LocalFile.fetch(pdf_path) do
           {:ok, [%{content: content} | _]} ->
             do_extract(content, name, payload, reply_to)
 
@@ -411,7 +417,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       |> maybe_put_opt(:timeout_ms, payload["timeout_ms"])
 
     {:ok, %{theme: theme, errors: errors, warnings: warnings}} =
-      BotArmyInternalDocs.Skills.ThemeExtractor.extract(text, opts)
+      ThemeExtractor.extract(text, opts)
 
     send_reply(reply_to, %{
       "ok" => true,
@@ -491,7 +497,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   end
 
   defp decode_message(body) do
-    case BotArmyCore.NATS.Decoder.decode(body) do
+    case Decoder.decode(body) do
       {:ok, %{"payload" => payload}} ->
         {:ok, payload}
 

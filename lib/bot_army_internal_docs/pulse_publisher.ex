@@ -3,6 +3,9 @@ defmodule BotArmyInternalDocs.PulsePublisher do
   use GenServer
   require Logger
 
+  alias Publisher
+  alias SynapseHealth
+
   @version Mix.Project.config()[:version]
   @publish_interval_ms 30 * 1000
   @initial_delay_ms 5_000
@@ -32,9 +35,9 @@ defmodule BotArmyInternalDocs.PulsePublisher do
       "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
     }
 
-    case BotArmyRuntime.NATS.Publisher.publish("bot.internal_docs.pulse", payload) do
+    case Publisher.publish("bot.internal_docs.pulse", payload) do
       {:ok, _} ->
-        BotArmyRuntime.SynapseHealth.publish(
+        SynapseHealth.publish(
           source: "bot_army_internal_docs",
           service: "internal_docs",
           health_signal: "nominal"
