@@ -4,7 +4,7 @@ defmodule BotArmyInternalDocs.MixProject do
   def project do
     [
       app: :bot_army_internal_docs,
-      version: "0.3.31",
+      version: "0.3.32",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -33,6 +33,7 @@ defmodule BotArmyInternalDocs.MixProject do
       {:jason, "~> 1.4"},
       {:logger_json, "~> 5.1"},
       {:elixir_uuid, "~> 1.2"},
+      {:file_system, "~> 1.0"},
 
       # Development/Test
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},

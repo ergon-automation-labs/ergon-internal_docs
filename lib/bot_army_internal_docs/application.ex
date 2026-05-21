@@ -45,7 +45,8 @@ defmodule BotArmyInternalDocs.Application do
     else
       [
         BotArmyInternalDocs.Ingestion.Poller,
-        BotArmyInternalDocs.Ingestion.EmbedWorker
+        BotArmyInternalDocs.Ingestion.EmbedWorker,
+        BotArmyInternalDocs.Ingestion.FileWatcher
         | children
       ]
     end
