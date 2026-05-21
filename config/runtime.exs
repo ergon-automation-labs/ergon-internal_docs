@@ -42,3 +42,13 @@ if System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH") do
          :para_docs_path,
          System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH")
 end
+
+# Graph database configuration at runtime (postgres-age, port 30002)
+# Priority: GRAPHDB_* (set by Salt) > defaults
+config :bot_army_core, BotArmyCore.GraphRepo,
+  hostname: System.get_env("GRAPHDB_HOST", "localhost"),
+  port: String.to_integer(System.get_env("GRAPHDB_PORT", "30002")),
+  username: System.get_env("GRAPHDB_USER", "postgres"),
+  password: System.get_env("GRAPHDB_PASSWORD", "postgres"),
+  database: System.get_env("GRAPHDB_NAME", "ergon_graphdb_internal_docs"),
+  pool_size: 2

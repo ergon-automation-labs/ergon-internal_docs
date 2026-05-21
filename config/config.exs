@@ -18,6 +18,9 @@ end
 
 config :bot_army_internal_docs, ecto_repos: [BotArmyInternalDocs.Repo]
 
+# Enable Apache AGE graph database for Phase 3
+config :bot_army_core, :graph_enabled, true
+
 # Primary database (pgvector on port 30003)
 config :bot_army_internal_docs, BotArmyInternalDocs.Repo,
   types: BotArmyInternalDocs.PostgrexTypes,

@@ -2,6 +2,7 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
   @moduledoc false
   require Logger
 
+  alias BotArmyInternalDocs.Graph.DocGraph
   alias BotArmyInternalDocs.NATS.Publisher
   alias BotArmyInternalDocs.Stores.DocChunkStore
 
@@ -42,6 +43,7 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
             {:ok, chunk, :new} ->
               Logger.debug("[Chunker] New chunk #{chunk.id} from #{name} (idx #{chunk_index})")
               Publisher.publish_chunk_ingested(chunk, %{name: name})
+              sync_chunk_to_graph(source_id, name, path, chunk, section.heading, chunk_index)
               [chunk]
 
             {:ok, _chunk, :existing} ->
@@ -144,5 +146,13 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
       new_chunks = if current != "", do: chunks ++ [current], else: chunks
       chunk_sentences(rest, new_chunks, sentence)
     end
+  end
+
+  defp sync_chunk_to_graph(source_id, name, path, chunk, heading, chunk_index) do
+    Task.start(fn ->
+      DocGraph.upsert_doc_node(source_id, name, %{path: path})
+      DocGraph.upsert_chunk_node(chunk.id, heading, %{chunk_index: chunk_index})
+      DocGraph.create_relationship(source_id, chunk.id, "HAS_CHUNK", %{})
+    end)
   end
 end

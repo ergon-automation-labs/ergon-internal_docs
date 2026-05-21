@@ -4,6 +4,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   require Logger
 
   alias BotArmyCore.NATS.Decoder
+  alias BotArmyInternalDocs.Graph.DocGraph
   alias BotArmyInternalDocs.Ingestion.Embedder
   alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
   alias BotArmyInternalDocs.Ingestion.Poller
@@ -215,6 +216,10 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         {:ok, _} ->
           Logger.debug("[NATS.Consumer] Embedding stored for chunk #{chunk_id}")
           DocChunkStore.mark_embedded(chunk_id)
+
+          Task.start(fn ->
+            DocGraph.upsert_chunk_node(chunk_id, nil, %{enrichment_status: "embedded"})
+          end)
 
         {:error, reason} ->
           Logger.warning("[NATS.Consumer] Embedding store failed: #{inspect(reason)}")
