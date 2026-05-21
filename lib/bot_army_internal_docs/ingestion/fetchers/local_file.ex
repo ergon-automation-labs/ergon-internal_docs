@@ -27,8 +27,7 @@ defmodule BotArmyInternalDocs.Ingestion.Fetchers.LocalFile do
         documents =
           entries
           |> Enum.map(&Path.join(dir, &1))
-          |> Enum.filter(&File.regular?/1)
-          |> Enum.filter(&has_extension?/1)
+          |> Enum.filter(&(File.regular?(&1) && has_extension?(&1)))
           |> Enum.map(&read_file/1)
           |> Enum.filter(fn
             {:ok, _} ->

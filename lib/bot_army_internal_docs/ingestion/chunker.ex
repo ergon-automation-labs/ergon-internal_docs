@@ -2,8 +2,8 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
   @moduledoc false
   require Logger
 
-  alias BotArmyInternalDocs.Stores.DocChunkStore
   alias BotArmyInternalDocs.NATS.Publisher
+  alias BotArmyInternalDocs.Stores.DocChunkStore
 
   @max_chunk_bytes 2048
 

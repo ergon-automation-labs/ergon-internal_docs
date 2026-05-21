@@ -3,7 +3,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   use GenServer
   require Logger
 
-  alias BotArmyInternalDocs.Stores.{DocSourceStore, DocChunkStore}
+  alias BotArmyInternalDocs.Stores.{DocChunkStore, DocSourceStore}
   alias BotArmyRuntime.NATS.Connection
 
   @registry_heartbeat_ms 20_000

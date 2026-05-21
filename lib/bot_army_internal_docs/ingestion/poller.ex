@@ -3,9 +3,9 @@ defmodule BotArmyInternalDocs.Ingestion.Poller do
   use GenServer
   require Logger
 
-  alias BotArmyInternalDocs.Stores.DocSourceStore
-  alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
   alias BotArmyInternalDocs.Ingestion.Chunker
+  alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
+  alias BotArmyInternalDocs.Stores.DocSourceStore
 
   @default_interval_ms 3_600_000
   @initial_delay_ms 10_000

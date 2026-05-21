@@ -3,8 +3,8 @@ defmodule BotArmyInternalDocs.Ingestion.EmbedWorker do
   use GenServer
   require Logger
 
-  alias BotArmyInternalDocs.Stores.DocChunkStore
   alias BotArmyInternalDocs.NATS.Publisher
+  alias BotArmyInternalDocs.Stores.DocChunkStore
 
   @poll_interval_ms 30_000
 
