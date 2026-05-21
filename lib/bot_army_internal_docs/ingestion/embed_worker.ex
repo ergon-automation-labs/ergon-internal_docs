@@ -6,7 +6,6 @@ defmodule BotArmyInternalDocs.Ingestion.EmbedWorker do
   alias BotArmyInternalDocs.Stores.DocChunkStore
   alias BotArmyInternalDocs.NATS.Publisher
 
-  @batch_size 10
   @poll_interval_ms 30_000
 
   def start_link(opts \\ []) do

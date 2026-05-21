@@ -64,8 +64,8 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
     {sections, current} =
       Enum.reduce(lines, {[], %{heading: nil, content: ""}}, fn line,
                                                                 {sections_acc, current_acc} ->
-        if Regex.match?(~R/^#{1,6}\s+/, line) do
-          heading = line |> String.replace(~R/^#{1,6}\s+/, "") |> String.trim()
+        if Regex.match?(~r/^[#]{1,6}\s+/, line) do
+          heading = line |> String.replace(~r/^[#]{1,6}\s+/, "") |> String.trim()
 
           if current_acc.content == "" and is_nil(current_acc.heading) do
             {sections_acc, %{heading: heading, content: ""}}
