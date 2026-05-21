@@ -4,7 +4,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
 
   alias BotArmyRuntime.NATS.Publisher
 
-  @embed_timeout_ms 120_000
+  @embed_timeout_ms 300_000
 
   def embed(text, model \\ nil) do
     reference_id = UUID.uuid4()
