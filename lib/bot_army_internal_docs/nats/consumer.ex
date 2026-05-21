@@ -56,6 +56,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       subject: "docs.theme.extract",
       type: :request_reply,
       description: "Extract a draft RPG theme map from a sourcebook PDF or text path"
+    },
+    %{
+      subject: "internal_docs.graph.context",
+      type: :request_reply,
+      description: "Graph context for a chunk (parent doc + nearby siblings)"
     }
   ]
 
@@ -388,6 +393,16 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
   defp route_message("docs.theme.extract", payload, reply_to, _state) do
     Task.start(fn -> handle_theme_extract(payload, reply_to) end)
+  end
+
+  defp route_message("internal_docs.graph.context", %{"chunk_id" => chunk_id}, reply_to, _state) do
+    case DocGraph.get_doc_context(chunk_id) do
+      {:ok, context} ->
+        send_reply(reply_to, Map.merge(%{"ok" => true, "chunk_id" => chunk_id}, context))
+
+      {:error, reason} ->
+        send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
+    end
   end
 
   defp route_message(topic, _payload, _reply_to, _state) do
