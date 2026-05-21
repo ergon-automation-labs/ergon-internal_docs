@@ -24,5 +24,9 @@ defmodule BotArmyInternalDocs.Release do
     end
   end
 
+  def migrate_graph do
+    BotArmyInternalDocs.GraphMigrator.run()
+  end
+
   defp repos, do: Application.fetch_env!(@app, :ecto_repos)
 end
