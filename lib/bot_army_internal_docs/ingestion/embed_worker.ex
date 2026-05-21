@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.Ingestion.EmbedWorker do
+  @moduledoc "Background GenServer that generates embeddings for doc chunks in batches."
   use GenServer
   require Logger
 

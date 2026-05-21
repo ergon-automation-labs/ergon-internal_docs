@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.Ingestion.Poller do
+  @moduledoc "Polls local file paths for new or changed documentation sources."
   use GenServer
   require Logger
 

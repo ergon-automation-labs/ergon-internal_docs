@@ -283,9 +283,8 @@ defmodule BotArmyInternalDocs.Skills.ThemeExtractor do
            receive_timeout: @default_timeout_ms
          ) do
       {:ok, %{body: body}} ->
-        with {:ok, %{"ok" => true, "response" => response}} <- Jason.decode(body) do
-          {:ok, response}
-        else
+        case Jason.decode(body) do
+          {:ok, %{"ok" => true, "response" => response}} -> {:ok, response}
           {:ok, %{"ok" => false} = err} -> {:error, err}
           other -> {:error, {:unexpected_response, other}}
         end

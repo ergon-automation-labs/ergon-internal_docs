@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.Stores.DocChunkStore do
+  @moduledoc "In-memory + Ecto store for chunked documentation text segments."
   use GenServer
   require Logger
 
@@ -126,8 +127,11 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
         {:reply, {:error, :not_found}, state}
 
       chunk ->
+        dim = vector_dimension(vector)
+        field = if dim == 768, do: :embedding_vector_768, else: :embedding_vector
+
         chunk
-        |> Ecto.Changeset.change(%{embedding_vector: vector, embedded_at: DateTime.utc_now()})
+        |> Ecto.Changeset.change(%{field => vector, embedded_at: DateTime.utc_now()})
         |> Repo.update()
         |> case do
           {:ok, updated} -> {:reply, {:ok, updated}, state}
@@ -137,13 +141,24 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   end
 
   def handle_call({:search_by_vector, vector, limit}, _from, state) do
+    dim = vector_dimension(vector)
+
     results =
-      from(c in DocChunk,
-        order_by: fragment("embedding_vector <=> ?", ^vector),
-        limit: ^limit,
-        where: not is_nil(c.embedding_vector)
-      )
-      |> Repo.all()
+      if dim == 768 do
+        from(c in DocChunk,
+          order_by: fragment("embedding_vector_768 <=> ?", ^vector),
+          limit: ^limit,
+          where: not is_nil(c.embedding_vector_768)
+        )
+        |> Repo.all()
+      else
+        from(c in DocChunk,
+          order_by: fragment("embedding_vector <=> ?", ^vector),
+          limit: ^limit,
+          where: not is_nil(c.embedding_vector)
+        )
+        |> Repo.all()
+      end
 
     {:reply, {:ok, results}, state}
   end
@@ -171,7 +186,9 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def handle_call(:list_pending_embeddings, _from, state) do
     chunks =
       from(c in DocChunk,
-        where: c.enrichment_status == "pending" and is_nil(c.embedding_vector),
+        where:
+          c.enrichment_status == "pending" and is_nil(c.embedding_vector) and
+            is_nil(c.embedding_vector_768),
         limit: 20
       )
       |> Repo.all()
@@ -228,6 +245,18 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
           |> Repo.all()
 
         {:reply, {:ok, rows}, state}
+    end
+  end
+
+  defp vector_dimension(vector) when is_list(vector) do
+    Enum.count(vector)
+  end
+
+  defp vector_dimension(vector) when is_map(vector) do
+    if Map.has_key?(vector, :data) do
+      vector.data |> Enum.count()
+    else
+      Enum.count(vector)
     end
   end
 end

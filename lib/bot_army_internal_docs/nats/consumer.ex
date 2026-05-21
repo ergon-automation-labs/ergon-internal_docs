@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.NATS.Consumer do
+  @moduledoc "NATS consumer for internal docs queries and ingestion requests."
   use GenServer
   require Logger
 

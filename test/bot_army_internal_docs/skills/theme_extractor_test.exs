@@ -57,12 +57,10 @@ defmodule BotArmyInternalDocs.Skills.ThemeExtractorTest do
       text = "Some sourcebook text."
 
       llm_caller = fn prompt ->
-        cond do
-          String.contains?(prompt, "core resolution mechanic") ->
-            {:ok, ~s(```json\n{"setting": "X", "tone": "Y", "mechanic": "Z"}\n```)}
-
-          true ->
-            {:ok, "{}"}
+        if String.contains?(prompt, "core resolution mechanic") do
+          {:ok, ~s(```json\n{"setting": "X", "tone": "Y", "mechanic": "Z"}\n```)}
+        else
+          {:ok, "{}"}
         end
       end
 

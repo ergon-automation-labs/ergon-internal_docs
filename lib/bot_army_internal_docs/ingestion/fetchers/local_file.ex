@@ -2,7 +2,9 @@ defmodule BotArmyInternalDocs.Ingestion.Fetchers.LocalFile do
   @moduledoc false
   require Logger
 
-  @extensions ~w(.md .txt .rst .markdown)
+  @extensions ~w(.md .txt .rst .markdown .pdf)
+  @default_max_text_bytes 15 * 1024 * 1024
+  @default_max_pdf_bytes 50 * 1024 * 1024
 
   def fetch(location) do
     path = Path.expand(location)
@@ -29,8 +31,12 @@ defmodule BotArmyInternalDocs.Ingestion.Fetchers.LocalFile do
           |> Enum.filter(&has_extension?/1)
           |> Enum.map(&read_file/1)
           |> Enum.filter(fn
-            {:ok, _} -> true
-            _ -> false
+            {:ok, _} ->
+              true
+
+            {:error, reason} ->
+              Logger.debug("[LocalFile] Skipping #{inspect(reason)}")
+              false
           end)
           |> Enum.map(fn {:ok, doc} -> doc end)
 
@@ -74,20 +80,82 @@ defmodule BotArmyInternalDocs.Ingestion.Fetchers.LocalFile do
   end
 
   defp read_file(path) do
+    ext = Path.extname(path)
+
+    with :ok <- ensure_within_size(path, ext),
+         {:ok, content} <- read_content(path, ext) do
+      {:ok,
+       %{
+         content: content,
+         path: path,
+         name: Path.basename(path),
+         extension: ext,
+         modified_at: file_mtime(path)
+       }}
+    end
+  end
+
+  defp read_content(path, ".pdf"), do: extract_pdf_text(path)
+
+  defp read_content(path, _ext) do
     case File.read(path) do
-      {:ok, content} ->
-        {:ok,
-         %{
-           content: content,
-           path: path,
-           name: Path.basename(path),
-           extension: Path.extname(path),
-           modified_at: file_mtime(path)
-         }}
+      {:ok, content} -> {:ok, content}
+      {:error, reason} -> {:error, {:read_failed, path, reason}}
+    end
+  end
+
+  defp extract_pdf_text(path) do
+    case System.find_executable("pdftotext") do
+      nil ->
+        {:error, {:pdf_extractor_unavailable, path}}
+
+      bin ->
+        case System.cmd(bin, ["-q", path, "-"], stderr_to_stdout: true) do
+          {text, 0} ->
+            cleaned = String.trim(text)
+
+            if cleaned == "" do
+              {:error, {:pdf_empty_text, path}}
+            else
+              {:ok, cleaned}
+            end
+
+          {output, status} ->
+            {:error, {:pdf_extract_failed, path, status, String.slice(output, 0, 200)}}
+        end
+    end
+  end
+
+  defp ensure_within_size(path, ext) do
+    case File.stat(path) do
+      {:ok, %{size: size}} ->
+        if size <= max_bytes_for_ext(ext) do
+          :ok
+        else
+          {:error, {:file_too_large, path, size}}
+        end
 
       {:error, reason} ->
-        Logger.warning("[LocalFile] Failed to read #{path}: #{inspect(reason)}")
-        {:error, {:read_failed, path, reason}}
+        {:error, {:stat_failed, path, reason}}
+    end
+  end
+
+  defp max_bytes_for_ext(".pdf"),
+    do: env_int("BOT_ARMY_INTERNAL_DOCS_MAX_PDF_BYTES", @default_max_pdf_bytes)
+
+  defp max_bytes_for_ext(_),
+    do: env_int("BOT_ARMY_INTERNAL_DOCS_MAX_TEXT_BYTES", @default_max_text_bytes)
+
+  defp env_int(name, default) do
+    case System.get_env(name) do
+      nil ->
+        default
+
+      raw ->
+        case Integer.parse(String.trim(raw)) do
+          {value, _} when value > 0 -> value
+          _ -> default
+        end
     end
   end
 

@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.PulsePublisher do
+  @moduledoc "Emits periodic heartbeat and version telemetry for the internal docs bot."
   use GenServer
   require Logger
 

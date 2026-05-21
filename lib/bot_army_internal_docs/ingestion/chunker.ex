@@ -64,29 +64,27 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
     {sections, current} =
       Enum.reduce(lines, {[], %{heading: nil, content: ""}}, fn line,
                                                                 {sections_acc, current_acc} ->
-        cond do
-          Regex.match?(~R/^#{1,6}\s+/, line) ->
-            heading = line |> String.replace(~R/^#{1,6}\s+/, "") |> String.trim()
+        if Regex.match?(~R/^#{1,6}\s+/, line) do
+          heading = line |> String.replace(~R/^#{1,6}\s+/, "") |> String.trim()
 
-            if current_acc.content == "" and is_nil(current_acc.heading) do
-              {sections_acc, %{heading: heading, content: ""}}
-            else
-              {sections_acc ++ [current_acc], %{heading: heading, content: ""}}
-            end
+          if current_acc.content == "" and is_nil(current_acc.heading) do
+            {sections_acc, %{heading: heading, content: ""}}
+          else
+            {sections_acc ++ [current_acc], %{heading: heading, content: ""}}
+          end
+        else
+          trimmed = String.trim(line)
 
-          true ->
-            trimmed = String.trim(line)
+          if trimmed == "" and current_acc.content == "" do
+            {sections_acc, current_acc}
+          else
+            new_content =
+              if current_acc.content == "",
+                do: trimmed,
+                else: current_acc.content <> "\n" <> trimmed
 
-            if trimmed == "" and current_acc.content == "" do
-              {sections_acc, current_acc}
-            else
-              new_content =
-                if current_acc.content == "",
-                  do: trimmed,
-                  else: current_acc.content <> "\n" <> trimmed
-
-              {sections_acc, %{current_acc | content: new_content}}
-            end
+            {sections_acc, %{current_acc | content: new_content}}
+          end
         end
       end)
 

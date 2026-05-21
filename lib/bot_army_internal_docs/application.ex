@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.Application do
+  @moduledoc "OTP Application for the Internal Docs bot. Manages doc ingestion, chunking, and NATS consumer."
   use Application
 
   @env Mix.env()

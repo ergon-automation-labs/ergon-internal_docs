@@ -11,6 +11,7 @@ defmodule BotArmyInternalDocs.Schemas.DocChunk do
     field(:chunk_index, :integer)
     field(:heading, :string)
     field(:embedding_vector, Pgvector.Ecto.Vector)
+    field(:embedding_vector_768, Pgvector.Ecto.Vector)
     field(:embedded_at, :utc_datetime_usec)
     field(:enrichment_status, :string, default: "pending")
     field(:topics, {:array, :string}, default: [])
@@ -28,6 +29,7 @@ defmodule BotArmyInternalDocs.Schemas.DocChunk do
   @optional [
     :heading,
     :embedding_vector,
+    :embedding_vector_768,
     :embedded_at,
     :enrichment_status,
     :topics,

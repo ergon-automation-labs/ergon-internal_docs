@@ -1,4 +1,5 @@
 defmodule BotArmyInternalDocs.Stores.DocSourceStore do
+  @moduledoc "In-memory + Ecto store for raw documentation source files and metadata."
   use GenServer
   require Logger
 

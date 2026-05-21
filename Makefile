@@ -1,7 +1,7 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 MIX ?= /Users/abby/.local/share/mise/shims/mix
 
-.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs status push-and-publish
+.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs status push-and-publish ingestion-progress ingestion-refresh ingestion-status ingestion-watch
 
 help:
 	@echo "Internal Docs Bot"
@@ -29,6 +29,12 @@ help:
 	@echo "Operations:"
 	@echo "  make logs            - Tail server log"
 	@echo "  make status          - Check if bot is running"
+	@echo ""
+	@echo "Ingestion & Document Management:"
+	@echo "  make ingestion-progress  - Show document embedding progress"
+	@echo "  make ingestion-status    - List configured doc sources and chunk counts"
+	@echo "  make ingestion-refresh   - Manually trigger document re-fetch and indexing"
+	@echo "  make ingestion-watch     - Watch ingestion activity (tail logs)"
 	@echo ""
 	@echo "Release commands:"
 	@echo "  make release         - Build OTP release locally"
@@ -136,3 +142,17 @@ logs:
 
 status:
 	@ps aux | grep beam | grep internal_docs | grep -v grep || echo "Bot not running"
+
+ingestion-progress:
+	@$(MIX) run scripts/ingestion_progress.exs
+
+ingestion-status:
+	@$(MIX) run scripts/ingestion_status.exs
+
+ingestion-refresh:
+	@$(MIX) run scripts/ingestion_refresh.exs
+
+ingestion-watch:
+	@echo "👀 Watching ingestion activity (Ctrl+C to stop)..."
+	@echo ""
+	@tail -f /var/log/bot_army/internal_docs.log 2>/dev/null | grep -E "\[Poller\]|\[Chunker\]|\[EmbedWorker\]|chunk|embed|Fetching|Published" || echo "Log file not found"
