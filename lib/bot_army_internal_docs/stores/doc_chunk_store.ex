@@ -193,6 +193,20 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
       )
       |> Repo.all()
 
+    if chunks == [] do
+      Logger.debug(
+        "[DocChunkStore] list_pending_embeddings: 0 chunks found. Checking statuses..."
+      )
+
+      all_statuses =
+        from(c in DocChunk, select: {c.enrichment_status, count(c.id)})
+        |> Repo.all()
+        |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+        |> Enum.map_join(", ", fn {status, counts} -> "#{status}:#{Enum.sum(counts)}" end)
+
+      Logger.debug("[DocChunkStore] Chunk statuses: #{all_statuses}")
+    end
+
     {:reply, {:ok, chunks}, state}
   end
 

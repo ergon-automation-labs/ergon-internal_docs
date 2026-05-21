@@ -207,7 +207,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     vector = Map.get(payload, "embedding")
 
     Logger.debug(
-      "[NATS.Consumer] Embedding event - chunk_id: #{inspect(chunk_id)}, has_vector: #{is_list(vector)}"
+      "[NATS.Consumer] Embedding event - keys: #{inspect(Map.keys(payload))}, chunk_id: #{inspect(chunk_id)}, has_vector: #{is_list(vector)}"
     )
 
     if chunk_id && vector do
@@ -219,7 +219,9 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
           Logger.warning("[NATS.Consumer] Embedding store failed: #{inspect(reason)}")
       end
     else
-      Logger.warning("[NATS.Consumer] Embedding missing chunk_id or vector")
+      Logger.warning(
+        "[NATS.Consumer] Embedding missing chunk_id or vector - chunk_id: #{inspect(chunk_id)}, vector_nil: #{is_nil(vector)}"
+      )
     end
   end
 
