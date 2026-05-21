@@ -207,6 +207,29 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
         |> Enum.map_join(", ", fn {status, count} -> "#{status}:#{count}" end)
 
       Logger.debug("[DocChunkStore] Chunk statuses: #{all_statuses}")
+
+      # Check embedding column status for pending chunks
+      pending_counts =
+        from(c in DocChunk,
+          where: c.enrichment_status == "pending",
+          select: {
+            count(c.id),
+            count(fragment("CASE WHEN ? IS NOT NULL THEN 1 END", c.embedding_vector)),
+            count(fragment("CASE WHEN ? IS NOT NULL THEN 1 END", c.embedding_vector_768)),
+            count(
+              fragment(
+                "CASE WHEN ? IS NULL AND ? IS NULL THEN 1 END",
+                c.embedding_vector,
+                c.embedding_vector_768
+              )
+            )
+          }
+        )
+        |> Repo.one()
+
+      Logger.debug(
+        "[DocChunkStore] Pending chunks - total:#{elem(pending_counts, 0)}, has_4096:#{elem(pending_counts, 1)}, has_768:#{elem(pending_counts, 2)}, both_null:#{elem(pending_counts, 3)}"
+      )
     end
 
     {:reply, {:ok, chunks}, state}
