@@ -61,6 +61,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       subject: "internal_docs.graph.context",
       type: :request_reply,
       description: "Graph context for a chunk (parent doc + nearby siblings)"
+    },
+    %{
+      subject: "internal_docs.search.hybrid",
+      type: :request_reply,
+      description: "Hybrid search: semantic + graph headings + keyword, top-3 context enriched"
     }
   ]
 
@@ -405,6 +410,43 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     end
   end
 
+  defp route_message(
+         "internal_docs.search.hybrid",
+         %{"query" => query_text} = payload,
+         reply_to,
+         state
+       ) do
+    limit = Map.get(payload, "limit", 5)
+    normalized = normalize_query(query_text)
+    now_ms = System.monotonic_time(:millisecond)
+
+    {cached_vector, _} =
+      get_cached_query_embedding(state.query_embedding_cache, normalized, now_ms)
+
+    Task.start(fn ->
+      total_ms = System.monotonic_time(:millisecond)
+
+      {semantic_ids, embed_ms} = fetch_semantic_ids(query_text, cached_vector, limit)
+      {graph_ids, _} = fetch_graph_ids(query_text, limit)
+      {keyword_ids, _} = fetch_keyword_ids(query_text, limit)
+
+      merged_ids = rrf_merge([semantic_ids, graph_ids, keyword_ids], limit)
+      {:ok, chunks} = DocChunkStore.get_many(merged_ids)
+      chunks_map = Map.new(chunks, fn c -> {c.id, c} end)
+      results = build_hybrid_results(merged_ids, chunks_map, semantic_ids, graph_ids, keyword_ids)
+
+      send_reply(reply_to, %{
+        "ok" => true,
+        "results" => results,
+        "count" => length(results),
+        "timing_ms" => %{
+          "embed" => embed_ms,
+          "total" => System.monotonic_time(:millisecond) - total_ms
+        }
+      })
+    end)
+  end
+
   defp route_message(topic, _payload, _reply_to, _state) do
     Logger.debug("[NATS.Consumer] Unhandled topic: #{topic}")
     :ok
@@ -580,6 +622,113 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     |> Enum.sort_by(fn {_query, %{inserted_at_ms: inserted_at_ms}} -> inserted_at_ms end, :desc)
     |> Enum.take(@query_embedding_cache_max_entries)
     |> Map.new()
+  end
+
+  defp fetch_semantic_ids(query_text, cached_vector, limit) do
+    embed_start = System.monotonic_time(:millisecond)
+
+    vector_result =
+      if cached_vector do
+        {:ok, cached_vector}
+      else
+        Embedder.embed(query_text)
+      end
+
+    embed_ms = System.monotonic_time(:millisecond) - embed_start
+
+    case vector_result do
+      {:ok, vector} ->
+        case DocChunkStore.search_by_vector(vector, limit) do
+          {:ok, chunks} -> {Enum.map(chunks, & &1.id), embed_ms}
+          _ -> {[], embed_ms}
+        end
+
+      _ ->
+        {[], embed_ms}
+    end
+  end
+
+  defp fetch_graph_ids(query_text, limit) do
+    case DocGraph.keyword_search(query_text, limit) do
+      {:ok, ids} -> {ids, 0}
+      _ -> {[], 0}
+    end
+  end
+
+  defp fetch_keyword_ids(query_text, limit) do
+    case DocChunkStore.search_by_keyword(query_text, limit) do
+      {:ok, chunks} -> {Enum.map(chunks, & &1.id), 0}
+      _ -> {[], 0}
+    end
+  end
+
+  defp rrf_merge(id_lists, limit) do
+    scores =
+      id_lists
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {ids, list_idx}, acc ->
+        ids
+        |> Enum.with_index()
+        |> Enum.reduce(acc, fn {id, rank}, scores_acc ->
+          score = 1.0 / (60 + rank)
+          Map.update(scores_acc, id, score, &(&1 + score))
+        end)
+      end)
+
+    scores
+    |> Enum.sort_by(fn {_id, score} -> score end, :desc)
+    |> Enum.map(fn {id, _score} -> id end)
+    |> Enum.take(limit)
+  end
+
+  defp build_hybrid_results(merged_ids, chunks_map, semantic_ids, graph_ids, keyword_ids) do
+    semantic_set = MapSet.new(semantic_ids)
+    graph_set = MapSet.new(graph_ids)
+    keyword_set = MapSet.new(keyword_ids)
+
+    merged_ids
+    |> Enum.with_index()
+    |> Enum.map(fn {id, idx} ->
+      chunk = chunks_map[id]
+
+      sources =
+        []
+        |> then(fn s -> if MapSet.member?(semantic_set, id), do: s ++ ["semantic"], else: s end)
+        |> then(fn s -> if MapSet.member?(graph_set, id), do: s ++ ["graph_heading"], else: s end)
+        |> then(fn s -> if MapSet.member?(keyword_set, id), do: s ++ ["keyword"], else: s end)
+
+      result = chunk_to_result(chunk)
+      result = Map.put(result, "sources", sources)
+
+      if idx < 3 do
+        case DocGraph.get_doc_context(id) do
+          {:ok, context} ->
+            doc = %{
+              "id" => context.id,
+              "name" => context.name,
+              "location" => context.location,
+              "source_type" => context.source_type
+            }
+
+            siblings =
+              context.siblings
+              |> Enum.map(fn sib ->
+                %{
+                  "id" => sib.id,
+                  "heading" => sib.heading,
+                  "chunk_index" => sib.chunk_index
+                }
+              end)
+
+            Map.put(result, "context", %{"doc" => doc, "siblings" => siblings})
+
+          _ ->
+            result
+        end
+      else
+        result
+      end
+    end)
   end
 
   defp send_reply(nil, _payload), do: :ok

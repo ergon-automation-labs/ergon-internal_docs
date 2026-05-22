@@ -13,6 +13,7 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
 
   def list(source_id \\ nil), do: GenServer.call(__MODULE__, {:list, source_id})
   def get(id), do: GenServer.call(__MODULE__, {:get, id})
+  def get_many(ids), do: GenServer.call(__MODULE__, {:get_many, ids})
   def create(attrs), do: GenServer.call(__MODULE__, {:create, attrs})
   def update(id, attrs), do: GenServer.call(__MODULE__, {:update, id, attrs})
 
@@ -68,6 +69,11 @@ defmodule BotArmyInternalDocs.Stores.DocChunkStore do
   def handle_call({:get, id}, _from, state) do
     result = Repo.get(DocChunk, id)
     {:reply, if(result, do: {:ok, result}, else: {:error, :not_found}), state}
+  end
+
+  def handle_call({:get_many, ids}, _from, state) when is_list(ids) do
+    chunks = Repo.all(from(c in DocChunk, where: c.id in ^ids))
+    {:reply, {:ok, chunks}, state}
   end
 
   def handle_call({:create, attrs}, _from, state) do
