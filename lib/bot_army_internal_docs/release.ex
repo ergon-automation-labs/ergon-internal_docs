@@ -4,10 +4,10 @@ defmodule BotArmyInternalDocs.Release do
   @app :bot_army_internal_docs
 
   def migrate do
-    for repo <- repos() do
-      {:ok, _, _} =
-        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
-    end
+    BotArmyRuntime.Ecto.MigrationRunner.run(
+      repo_module: BotArmyInternalDocs.Repo,
+      app_module: @app
+    )
   end
 
   def rollback(repo, version) do
