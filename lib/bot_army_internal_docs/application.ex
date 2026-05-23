@@ -20,7 +20,15 @@ defmodule BotArmyInternalDocs.Application do
   end
 
   defp maybe_add_repo(children) do
-    if @env == :test, do: children, else: [BotArmyInternalDocs.Repo | children]
+    if @env == :test do
+      children
+    else
+      [
+        BotArmyInternalDocs.Repo,
+        {BotArmyInternalDocs.GraphRepo, restart: :temporary}
+        | children
+      ]
+    end
   end
 
   defp maybe_add_stores(children) do

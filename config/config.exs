@@ -16,10 +16,11 @@ if File.exists?("config/.env") or File.exists?(".env") do
   end)
 end
 
-config :bot_army_internal_docs, ecto_repos: [BotArmyInternalDocs.Repo]
+config :bot_army_internal_docs,
+  ecto_repos: [BotArmyInternalDocs.Repo, BotArmyInternalDocs.GraphRepo]
 
-# Enable Apache AGE graph database for Phase 3
-config :bot_army_library_core, :graph_enabled, true
+# Configure library graph functions to use this bot's repo
+config :bot_army_library_core, :graph_repo, BotArmyInternalDocs.GraphRepo
 
 # Primary database (pgvector on port 30003)
 config :bot_army_internal_docs, BotArmyInternalDocs.Repo,

@@ -53,7 +53,7 @@ defmodule BotArmyInternalDocs.GraphMigrator do
   defp check_graph_available do
     sql = "SELECT 1 FROM ag_graph WHERE name = 'knowledge'"
 
-    case BotArmyCore.GraphRepo.query(sql, []) do
+    case BotArmyInternalDocs.GraphRepo.query(sql, []) do
       {:ok, result} when result.num_rows > 0 ->
         :ok
 
@@ -70,7 +70,7 @@ defmodule BotArmyInternalDocs.GraphMigrator do
     cypher = "MATCH (m:_Migration) RETURN m.version as version ORDER BY version"
     sql = "SELECT * FROM cypher('knowledge', $1) AS (result agtype)"
 
-    case BotArmyCore.GraphRepo.query(sql, [cypher]) do
+    case BotArmyInternalDocs.GraphRepo.query(sql, [cypher]) do
       {:ok, _result} ->
         []
 
@@ -141,7 +141,7 @@ defmodule BotArmyInternalDocs.GraphMigrator do
 
     sql = "SELECT * FROM cypher('knowledge', $1) AS (result agtype)"
 
-    case BotArmyCore.GraphRepo.query!(sql, [cypher]) do
+    case BotArmyInternalDocs.GraphRepo.query!(sql, [cypher]) do
       _ ->
         :ok
     end

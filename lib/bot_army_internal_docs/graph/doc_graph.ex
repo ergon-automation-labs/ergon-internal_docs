@@ -86,7 +86,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     sql = "SELECT chunk_id::text FROM cypher('knowledge', $1) AS (chunk_id agtype)"
 
     graph_ids =
-      case BotArmyCore.GraphRepo.query(sql, [cypher]) do
+      case BotArmyInternalDocs.GraphRepo.query(sql, [cypher]) do
         {:ok, result} ->
           result.rows
           |> Enum.map(fn [id] -> decode_agtype(id) end)
@@ -120,7 +120,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     sql =
       "SELECT doc_id::text, doc_name::text, loc::text, stype::text, sib_id::text, sib_heading::text, sib_idx::text FROM cypher('knowledge', $1) AS (doc_id agtype, doc_name agtype, loc agtype, stype agtype, sib_id agtype, sib_heading agtype, sib_idx agtype)"
 
-    case BotArmyCore.GraphRepo.query(sql, [cypher]) do
+    case BotArmyInternalDocs.GraphRepo.query(sql, [cypher]) do
       {:ok, result} ->
         if Enum.empty?(result.rows) do
           {:error, :not_found}

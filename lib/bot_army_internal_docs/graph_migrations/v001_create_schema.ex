@@ -26,7 +26,7 @@ defmodule BotArmyInternalDocs.GraphMigrations.V001CreateSchema do
   defp verify_knowledge_graph do
     sql = "SELECT 1 FROM ag_graph WHERE name = 'knowledge'"
 
-    case BotArmyCore.GraphRepo.query(sql, []) do
+    case BotArmyInternalDocs.GraphRepo.query(sql, []) do
       {:ok, result} when result.num_rows > 0 ->
         Logger.info("[Migration V001] Knowledge graph verified")
         :ok
