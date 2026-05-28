@@ -90,7 +90,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
           end
 
         Logger.info("[NATS.Consumer] Subscribed to internal_docs subjects")
-        BotArmyRuntime.Registry.register("internal_docs", @subjects, @version)
+
+        deployment_status =
+          Application.get_env(:bot_army_internal_docs, :deployment_status, "deployed")
+
+        BotArmyRuntime.Registry.register("internal_docs", @subjects, @version, deployment_status)
         Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,
