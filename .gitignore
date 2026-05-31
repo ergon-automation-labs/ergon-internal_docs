@@ -3,3 +3,4 @@
 /.cache/
 ergon_internal_docs-*.tar.gz
 *.tar.gz
+erl_crash.dump
