@@ -1,10 +1,12 @@
 defmodule BotArmyInternalDocs.Release do
   @moduledoc false
 
+  alias BotArmyRuntime.Ecto.MigrationRunner
+
   @app :bot_army_internal_docs
 
   def migrate do
-    BotArmyRuntime.Ecto.MigrationRunner.run(
+    MigrationRunner.run(
       repo_module: BotArmyInternalDocs.Repo,
       app_module: @app
     )

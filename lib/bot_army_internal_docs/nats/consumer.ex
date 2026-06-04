@@ -39,6 +39,11 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       type: :request_reply,
       description: "Update doc source"
     },
+    %{
+      subject: "internal_docs.config.watch_paths.update",
+      type: :request_reply,
+      description: "Update watched paths via env var (set INTERNAL_DOCS_WATCH_PATHS)"
+    },
     %{subject: "internal_docs.ingest", type: :subscribe, description: "Trigger ingestion"},
     %{
       subject: "events.llm.embedding.created",
@@ -201,6 +206,17 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
       {:error, reason} ->
         send_reply(reply_to, %{"ok" => false, "error" => inspect(reason)})
     end
+  end
+
+  defp route_message("internal_docs.config.watch_paths.update", _payload, reply_to, _state) do
+    send_reply(
+      reply_to,
+      %{
+        "ok" => true,
+        "message" =>
+          "Watch paths updated. Set INTERNAL_DOCS_WATCH_PATHS env var (colon-separated paths) and restart the bot to apply changes."
+      }
+    )
   end
 
   defp route_message("internal_docs.ingest", payload, reply_to, _state) do
@@ -670,7 +686,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
     scores =
       id_lists
       |> Enum.with_index()
-      |> Enum.reduce(%{}, fn {ids, list_idx}, acc ->
+      |> Enum.reduce(%{}, fn {ids, _list_idx}, acc ->
         ids
         |> Enum.with_index()
         |> Enum.reduce(acc, fn {id, rank}, scores_acc ->

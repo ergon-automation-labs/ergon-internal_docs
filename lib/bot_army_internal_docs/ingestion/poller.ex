@@ -4,6 +4,7 @@ defmodule BotArmyInternalDocs.Ingestion.Poller do
   require Logger
 
   alias BotArmyInternalDocs.Ingestion.Chunker
+  alias BotArmyInternalDocs.Ingestion.Fetchers.GitHubWiki
   alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
   alias BotArmyInternalDocs.Stores.DocSourceStore
 
@@ -108,6 +109,10 @@ defmodule BotArmyInternalDocs.Ingestion.Poller do
 
   defp fetch(%{source_type: "local_file"} = source) do
     LocalFile.fetch(source.location)
+  end
+
+  defp fetch(%{source_type: "github_wiki"} = source) do
+    GitHubWiki.fetch(source.location)
   end
 
   defp fetch(%{source_type: type} = _source) do

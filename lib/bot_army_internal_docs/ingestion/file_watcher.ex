@@ -14,15 +14,17 @@ defmodule BotArmyInternalDocs.Ingestion.FileWatcher do
 
   @impl true
   def init(_opts) do
-    case FileSystem.start_link(dirs: watched_dirs(), latency: 1000) do
+    watched = watched_dirs()
+
+    case FileSystem.start_link(dirs: watched, latency: 1000) do
       {:ok, pid} ->
         FileSystem.subscribe(pid)
-        Logger.info("[FileWatcher] Watching #{length(watched_dirs())} directories")
-        {:ok, %{fs_pid: pid, pending_sources: %{}, timers: %{}}}
+        Logger.info("[FileWatcher] Watching #{length(watched)} directories")
+        {:ok, %{fs_pid: pid, pending_sources: %{}, timers: %{}, watched_dirs: watched}}
 
       {:error, reason} ->
         Logger.warning("[FileWatcher] Failed to start file system monitor: #{inspect(reason)}")
-        {:ok, %{fs_pid: nil, pending_sources: %{}, timers: %{}}}
+        {:ok, %{fs_pid: nil, pending_sources: %{}, timers: %{}, watched_dirs: watched}}
     end
   end
 
@@ -66,15 +68,32 @@ defmodule BotArmyInternalDocs.Ingestion.FileWatcher do
   end
 
   defp watched_dirs do
-    case DocSourceStore.list() do
-      {:ok, sources} ->
-        sources
-        |> Enum.filter(fn s -> s.enabled && s.source_type == "local_file" end)
-        |> Enum.map(& &1.location)
-        |> Enum.uniq()
+    db_dirs =
+      case DocSourceStore.list() do
+        {:ok, sources} ->
+          sources
+          |> Enum.filter(fn s -> s.enabled && s.source_type == "local_file" end)
+          |> Enum.map(& &1.location)
 
-      {:error, _reason} ->
+        {:error, _reason} ->
+          []
+      end
+
+    env_dirs = env_watch_paths()
+    (db_dirs ++ env_dirs) |> Enum.uniq()
+  end
+
+  defp env_watch_paths do
+    case System.get_env("INTERNAL_DOCS_WATCH_PATHS") do
+      nil ->
         []
+
+      raw ->
+        raw
+        |> String.split(":")
+        |> Enum.map(&String.trim/1)
+        |> Enum.filter(&(&1 != ""))
+        |> Enum.map(&Path.expand/1)
     end
   end
 
