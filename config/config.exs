@@ -1,5 +1,15 @@
 import Config
 
+# Logger with correlation_id support
+config :logger,
+  level: :info,
+  backends: [:console],
+  default_formatter: {BotArmyRuntime.LoggerFormatter, []}
+
+config :logger, :console,
+  format: {BotArmyRuntime.LoggerFormatter, []},
+  metadata: [:correlation_id]
+
 # Load .env for local development
 if File.exists?("config/.env") or File.exists?(".env") do
   path = if File.exists?("config/.env"), do: "config/.env", else: ".env"
@@ -39,3 +49,4 @@ config :bot_army_internal_docs, :para_docs_path, "docs/personal_os"
 if File.exists?("config/#{Mix.env()}.exs") do
   import_config "#{Mix.env()}.exs"
 end
+
