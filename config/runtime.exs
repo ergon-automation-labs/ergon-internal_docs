@@ -50,4 +50,5 @@ config :bot_army_internal_docs, BotArmyInternalDocs.GraphRepo,
   username: System.get_env("BOT_ARMY_INTERNAL_DOCS_GRAPHDB_USER", "postgres"),
   password: System.get_env("BOT_ARMY_INTERNAL_DOCS_GRAPHDB_PASSWORD", "postgres"),
   database: System.get_env("BOT_ARMY_INTERNAL_DOCS_GRAPHDB_NAME", "ergon_graphdb_internal_docs"),
-  pool_size: 2
+  pool_size: System.get_env("BOT_POOL_SIZE", "10") |> String.to_integer(),
+
