@@ -1,6 +1,6 @@
 defmodule BotArmyInternalDocs.NATS.Publisher do
   @moduledoc "Publishes internal docs events (ingested, chunked, embedded) to NATS."
-  alias BotArmyRuntime.NATS.Publisher
+  alias BotArmyLibraryRuntime.NATS.Publisher
 
   defp base_event(event_name, triggered_by) do
     %{

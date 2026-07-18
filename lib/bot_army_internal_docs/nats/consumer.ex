@@ -3,7 +3,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   use GenServer
   require Logger
 
-  alias BotArmyCore.NATS.Decoder
+  alias BotArmyLibraryCore.NATS.Decoder
   alias BotArmyInternalDocs.Graph.DocGraph
   alias BotArmyInternalDocs.Ingestion.Embedder
   alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
@@ -11,7 +11,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   alias BotArmyInternalDocs.NATS.Publisher
   alias BotArmyInternalDocs.Skills.ThemeExtractor
   alias BotArmyInternalDocs.Stores.{DocChunkStore, DocSourceStore}
-  alias BotArmyRuntime.NATS.Connection
+  alias BotArmyLibraryRuntime.NATS.Connection
 
   @registry_heartbeat_ms 20_000
   @version Mix.Project.config()[:version]
@@ -99,7 +99,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         deployment_status =
           Application.get_env(:bot_army_internal_docs, :deployment_status, "deployed")
 
-        BotArmyRuntime.Registry.register("internal_docs", @subjects, @version, deployment_status)
+        BotArmyLibraryRuntime.Registry.register("internal_docs", @subjects, @version, deployment_status)
         Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,
@@ -119,7 +119,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
   @impl true
   def handle_info({:msg, msg}, state) do
-    BotArmyRuntime.Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
+    BotArmyLibraryRuntime.Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
       case decode_message(msg.body) do
         {:ok, payload} ->
           route_message(msg.topic, payload, msg.reply_to, state)
@@ -137,7 +137,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
   def handle_info(:registry_heartbeat, state) do
     if Map.get(state, :registry_registered?) do
-      BotArmyRuntime.Registry.register("internal_docs", @subjects, @version)
+      BotArmyLibraryRuntime.Registry.register("internal_docs", @subjects, @version)
       Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
     end
 
@@ -754,7 +754,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   defp send_reply(nil, _payload), do: :ok
 
   defp send_reply(reply_to, payload) when is_binary(reply_to) do
-    case BotArmyRuntime.NATS.Publisher.publish(reply_to, payload) do
+    case BotArmyLibraryRuntime.NATS.Publisher.publish(reply_to, payload) do
       :ok -> :ok
       {:ok, _} -> :ok
       {:error, reason} -> Logger.warning("[NATS.Consumer] Reply failed: #{inspect(reason)}")

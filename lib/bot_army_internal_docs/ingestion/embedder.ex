@@ -2,7 +2,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
   @moduledoc false
   require Logger
 
-  alias BotArmyRuntime.NATS.Publisher
+  alias BotArmyLibraryRuntime.NATS.Publisher
 
   @embed_timeout_ms 300_000
 
@@ -32,7 +32,7 @@ defmodule BotArmyInternalDocs.Ingestion.Embedder do
       "payload" => payload
     }
 
-    case GenServer.call(BotArmyRuntime.NATS.Connection, :get_connection, 5000) do
+    case GenServer.call(BotArmyLibraryRuntime.NATS.Connection, :get_connection, 5000) do
       {:ok, conn} ->
         {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.embedding.created")
         {:ok, _sid} = Gnat.sub(conn, self(), "events.llm.error")

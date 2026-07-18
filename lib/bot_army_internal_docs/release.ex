@@ -1,7 +1,7 @@
 defmodule BotArmyInternalDocs.Release do
   @moduledoc false
 
-  alias BotArmyRuntime.Ecto.MigrationRunner
+  alias BotArmyLibraryRuntime.Ecto.MigrationRunner
 
   @app :bot_army_internal_docs
 
