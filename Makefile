@@ -1,7 +1,7 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 MIX ?= /Users/abby/.local/share/mise/shims/mix
 
-.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs status push-and-publish ingestion-progress ingestion-refresh ingestion-status ingestion-watch bump-version compile
+.PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs status push-and-publish ingestion-progress ingestion-refresh ingestion-status ingestion-watch bump-version compile push git-push pre-push-cleanup sync-release-version
 
 help:
 	@echo "Internal Docs Bot"
@@ -64,7 +64,7 @@ reset-db:
 init:
 	@if [ ! -d .git ]; then git init; fi
 
-compile:
+_compile-impl:
 	@LOG_FILE="/tmp/compile-docs-$$(date +%s).log"; \
 	echo "Compiling docs and logging to $$LOG_FILE..."; \
 	$(MIX) compile 2>&1 | tee "$$LOG_FILE"; \
@@ -73,7 +73,7 @@ compile:
 deps:
 	$(MIX) deps.get
 
-compile:
+_compile-impl:
 	@LOG_FILE="/tmp/compile-docs-$$(date +%s).log"; \
 	echo "Compiling docs and logging to $$LOG_FILE..."; \
 	$(MIX) compile 2>&1 | tee "$$LOG_FILE"; \
@@ -185,3 +185,12 @@ push: test compile credo
 
 git-push:
 	@git push origin main 2>&1 | tail -3
+
+# Shared targets (push, credo, pre-push-cleanup, bump-version, git-push).
+# Defined once in bot_army_infra so they cannot drift per repo.
+BOT_ARMY_COMMON_MK := $(abspath $(CURDIR)/../bot_army_infra/make/common.mk)
+ifeq ($(wildcard $(BOT_ARMY_COMMON_MK)),)
+$(warning bot_army_infra not found at $(BOT_ARMY_COMMON_MK) - shared targets unavailable)
+else
+include $(BOT_ARMY_COMMON_MK)
+endif
