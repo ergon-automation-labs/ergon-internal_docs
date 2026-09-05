@@ -31,14 +31,20 @@ config :bot_army_internal_docs,
 # Configure library graph functions to use this bot's repo
 config :bot_army_library_core, :graph_repo, BotArmyInternalDocs.GraphRepo
 
-# Primary database (pgvector on port 30003)
+# Primary database (pgvector; LaunchDaemon env via PgBouncer 30006)
 config :bot_army_internal_docs, BotArmyInternalDocs.Repo,
   types: BotArmyInternalDocs.PostgrexTypes,
-  database: System.get_env("BOT_ARMY_INTERNAL_DOCS_DB_NAME") || "ergon_internal_docs_dev",
-  hostname: System.get_env("BOT_ARMY_INTERNAL_DOCS_DB_HOST") || "localhost",
-  port: String.to_integer(System.get_env("BOT_ARMY_INTERNAL_DOCS_DB_PORT") || "30003"),
-  username: System.get_env("BOT_ARMY_INTERNAL_DOCS_DB_USER") || "postgres",
-  password: System.get_env("BOT_ARMY_INTERNAL_DOCS_DB_PASSWORD") || "postgres",
+  # Runtime convention (RuntimeDbConfig.resolve): <PREFIX>_DB_NAME -> DATABASE_NAME -> dev default.
+  # Prefix = service name "internal_docs_bot": the old key here was missing the _BOT_
+  # segment, so prod fell back to the non-existent ergon_internal_docs_dev and every
+  # pool connection failed (invalid_catalog_name, 2026-09-05).
+  database:
+    System.get_env("BOT_ARMY_INTERNAL_DOCS_BOT_DB_NAME") ||
+      System.get_env("DATABASE_NAME") || "ergon_internal_docs_dev",
+  hostname: System.get_env("BOT_ARMY_INTERNAL_DOCS_BOT_DB_HOST") || "127.0.0.1",
+  port: String.to_integer(System.get_env("BOT_ARMY_INTERNAL_DOCS_BOT_DB_PORT") || "30006"),
+  username: System.get_env("BOT_ARMY_INTERNAL_DOCS_BOT_DB_USER") || "postgres",
+  password: System.get_env("BOT_ARMY_INTERNAL_DOCS_BOT_DB_PASSWORD") || "postgres",
   pool_size: 10
 
 # Default doc sources (JSON from env, or empty)
