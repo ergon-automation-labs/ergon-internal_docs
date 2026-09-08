@@ -25,6 +25,14 @@ defmodule BotArmyInternalDocs.Ingestion.FileWatcher do
       {:error, reason} ->
         Logger.warning("[FileWatcher] Failed to start file system monitor: #{inspect(reason)}")
         {:ok, %{fs_pid: nil, pending_sources: %{}, timers: %{}, watched_dirs: watched}}
+
+      # :ignore — the file_system backend couldn't launch its port program
+      # (alpine runtime images ship no inotify binary; caught in starter
+      # container builds 2026-09-08). Run without live watching; the Poller
+      # still fetches on its own schedule.
+      :ignore ->
+        Logger.warning("[FileWatcher] File system backend unavailable (:ignore) — continuing without live watching")
+        {:ok, %{fs_pid: nil, pending_sources: %{}, timers: %{}, watched_dirs: watched}}
     end
   end
 
