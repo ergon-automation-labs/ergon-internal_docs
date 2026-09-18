@@ -43,10 +43,6 @@ help:
 setup: init deps setup-hooks setup-db
 	@echo "Setup complete!"
 
-setup-hooks:
-	@git config core.hooksPath git-hooks
-	@echo "Git hooks installed"
-
 setup-db:
 	@echo "Setting up database..."
 	@MIX_ENV=test $(MIX) ecto.create || true
