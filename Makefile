@@ -1,5 +1,4 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
-MIX ?= /Users/abby/.local/share/mise/shims/mix
 
 .PHONY: setup help deps test test-schemas test-stores test-nats test-integration test-full dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs status push-and-publish ingestion-progress ingestion-refresh ingestion-status ingestion-watch compile sync-release-version
 
