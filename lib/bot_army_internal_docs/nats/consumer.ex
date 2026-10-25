@@ -89,10 +89,19 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
 
     case GenServer.call(Connection, :get_connection, 5000) do
       {:ok, conn} ->
-        subscriptions =
-          for %{subject: subject} <- @subjects do
-            {Gnat.sub(conn, self(), subject), subject}
-          end
+        # Subscribe THROUGH the Connection, not to its pid.
+        #
+        # This used to be `Gnat.sub(conn, self(), subject)` against a pid cached
+        # here. When the Gnat process is replaced (a broker PING missed under
+        # host load is enough), the Connection re-subscribes only the pids it
+        # has registered — and this one was not among them. The consumer then
+        # held a dead pid, Gnat.sub on a dead pid is silent, and the registry
+        # heartbeat kept advertising subjects no broker connection carried.
+        # Measured 2026-10-25 on this bot: connz showed nothing subscribed to
+        # internal_docs.*, and only a restart brought it back.
+        # Connection.subscribe/1 registers the subjects against this pid, so
+        # every new link re-subscribes them.
+        :ok = Connection.subscribe(Enum.map(@subjects, & &1.subject))
 
         Logger.info("[NATS.Consumer] Subscribed to internal_docs subjects")
 
@@ -105,7 +114,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         {:ok,
          %{
            conn: conn,
-           subscriptions: subscriptions,
+           subscriptions: [],
            tenant_id: tenant_id,
            registry_registered?: true,
            query_embedding_cache: %{}
