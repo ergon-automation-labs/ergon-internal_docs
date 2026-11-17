@@ -6,7 +6,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
 
   require Logger
 
-  alias BotArmy.Graph
+  alias BotArmyInternalDocs.GraphRepo
   alias BotArmyInternalDocs.Stores.DocChunkStore
 
   def upsert_doc_node(id, name, properties \\ %{}) do
@@ -22,7 +22,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
         "d.category = '#{escape_string(category)}', " <>
         "d.updated_at = timestamp()"
 
-    case Graph.query(cypher) do
+    case run_cypher(cypher) do
       {:ok, _} ->
         :ok
 
@@ -44,7 +44,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
         "c.enrichment_status = '#{escape_string(enrichment_status)}', " <>
         "c.updated_at = timestamp()"
 
-    case Graph.query(cypher) do
+    case run_cypher(cypher) do
       {:ok, _} ->
         :ok
 
@@ -63,7 +63,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
         "MERGE (from)-[r:#{relationship_type}]->(to) " <>
         "SET r.updated_at = timestamp()"
 
-    case Graph.query(cypher) do
+    case run_cypher(cypher) do
       {:ok, _} ->
         :ok
 
@@ -179,6 +179,11 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
       {:ok, value} -> value
       _ -> raw
     end
+  end
+
+  defp run_cypher(cypher) do
+    sql = "SELECT * FROM cypher('knowledge', $1) AS (result agtype)"
+    GraphRepo.query(sql, [cypher])
   end
 
   defp escape_string(s) when is_binary(s) do
