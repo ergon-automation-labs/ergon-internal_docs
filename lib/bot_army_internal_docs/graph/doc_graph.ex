@@ -193,7 +193,11 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
   end
 
   defp escape_string(s) when is_binary(s) do
-    String.replace(s, "'", "''")
+    s
+    |> String.replace("\\", "\\\\")
+    |> String.replace("'", "\\'")
+    |> String.replace("\n", "\\n")
+    |> String.replace("\r", "\\r")
   end
 
   defp escape_label(label) when is_binary(label) do
