@@ -83,10 +83,11 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     cypher =
       "MATCH (c:DocChunk) WHERE c.heading CONTAINS '#{escape_string(query)}' RETURN c.id::text LIMIT #{limit}"
 
-    sql = "SELECT chunk_id::text FROM cypher('knowledge', $1) AS (chunk_id agtype)"
+    sql =
+      "SELECT chunk_id::text FROM cypher('knowledge', '#{escape_string(cypher)}') AS (chunk_id agtype)"
 
     graph_ids =
-      case BotArmyInternalDocs.GraphRepo.query(sql, [cypher]) do
+      case GraphRepo.query(sql) do
         {:ok, result} ->
           result.rows
           |> Enum.map(fn [id] -> decode_agtype(id) end)
@@ -118,9 +119,9 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     """
 
     sql =
-      "SELECT doc_id::text, doc_name::text, loc::text, stype::text, sib_id::text, sib_heading::text, sib_idx::text FROM cypher('knowledge', $1) AS (doc_id agtype, doc_name agtype, loc agtype, stype agtype, sib_id agtype, sib_heading agtype, sib_idx agtype)"
+      "SELECT doc_id::text, doc_name::text, loc::text, stype::text, sib_id::text, sib_heading::text, sib_idx::text FROM cypher('knowledge', '#{escape_string(cypher)}') AS (doc_id agtype, doc_name agtype, loc agtype, stype agtype, sib_id agtype, sib_heading agtype, sib_idx agtype)"
 
-    case BotArmyInternalDocs.GraphRepo.query(sql, [cypher]) do
+    case GraphRepo.query(sql) do
       {:ok, result} ->
         if Enum.empty?(result.rows) do
           {:error, :not_found}
@@ -181,9 +182,13 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     end
   end
 
+  # Apache AGE parses the Cypher argument at SQL parse time, so a bind
+  # parameter (`$1`) is rejected with "a dollar-quoted string constant is
+  # expected". Interpolate the Cypher into a SQL literal instead and let
+  # `escape_string/1` double any quotes inside it.
   defp run_cypher(cypher) do
-    sql = "SELECT * FROM cypher('knowledge', $1) AS (result agtype)"
-    GraphRepo.query(sql, [cypher])
+    sql = "SELECT * FROM cypher('knowledge', '#{escape_string(cypher)}') AS (result agtype)"
+    GraphRepo.query(sql)
   end
 
   defp escape_string(s) when is_binary(s) do
