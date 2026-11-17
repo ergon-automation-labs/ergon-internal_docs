@@ -56,6 +56,40 @@ defmodule BotArmyInternalDocs.Ingestion.Fetchers.LocalFileTest do
       assert doc.name == "deep.md"
     end
 
+    test "stages only included subdirectories" do
+      projects = Path.join(@tmp_dir, "projects")
+      resources = Path.join(@tmp_dir, "resources")
+      File.mkdir_p!(projects)
+      File.mkdir_p!(resources)
+      File.write!(Path.join(projects, "plan.md"), "Project plan")
+      File.write!(Path.join(resources, "book.md"), "Resource book")
+
+      assert {:ok, docs} = LocalFile.fetch(@tmp_dir, %{"include" => ["projects"]})
+      assert Enum.map(docs, & &1.name) == ["plan.md"]
+    end
+
+    test "excludes named paths while walking the rest" do
+      projects = Path.join(@tmp_dir, "projects")
+      archive = Path.join(@tmp_dir, "archive")
+      File.mkdir_p!(projects)
+      File.mkdir_p!(archive)
+      File.write!(Path.join(projects, "plan.md"), "Project plan")
+      File.write!(Path.join(archive, "old.md"), "Archived plan")
+
+      assert {:ok, docs} = LocalFile.fetch(@tmp_dir, %{"exclude" => ["archive"]})
+      assert Enum.map(docs, & &1.name) == ["plan.md"]
+    end
+
+    test "a missing include is an error, not a silent empty corpus" do
+      assert {:error, {:include_not_found, _}} =
+               LocalFile.fetch(@tmp_dir, %{"include" => ["missing"]})
+    end
+
+    test "an include cannot escape the source root" do
+      assert {:error, {:include_outside_root, "../outside"}} =
+               LocalFile.fetch(@tmp_dir, %{"include" => ["../outside"]})
+    end
+
     test "returns error for nonexistent path" do
       assert {:error, {:path_not_found, _}} = LocalFile.fetch("/nonexistent/path")
     end

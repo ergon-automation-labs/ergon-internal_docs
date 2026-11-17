@@ -3,7 +3,6 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   use GenServer
   require Logger
 
-  alias BotArmyLibraryCore.NATS.Decoder
   alias BotArmyInternalDocs.Graph.DocGraph
   alias BotArmyInternalDocs.Ingestion.Embedder
   alias BotArmyInternalDocs.Ingestion.Fetchers.LocalFile
@@ -11,6 +10,7 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
   alias BotArmyInternalDocs.NATS.Publisher
   alias BotArmyInternalDocs.Skills.ThemeExtractor
   alias BotArmyInternalDocs.Stores.{DocChunkStore, DocSourceStore}
+  alias BotArmyLibraryCore.NATS.Decoder
   alias BotArmyLibraryRuntime.NATS.Connection
 
   @registry_heartbeat_ms 20_000
@@ -108,7 +108,13 @@ defmodule BotArmyInternalDocs.NATS.Consumer do
         deployment_status =
           Application.get_env(:bot_army_internal_docs, :deployment_status, "deployed")
 
-        BotArmyLibraryRuntime.Registry.register("internal_docs", @subjects, @version, deployment_status)
+        BotArmyLibraryRuntime.Registry.register(
+          "internal_docs",
+          @subjects,
+          @version,
+          deployment_status
+        )
+
         Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,

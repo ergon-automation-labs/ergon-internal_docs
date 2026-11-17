@@ -33,10 +33,14 @@ defmodule DocSourceStoreTest do
     setup do
       prev_defaults = Application.get_env(:bot_army_internal_docs, :default_sources)
       prev_para_path = Application.get_env(:bot_army_internal_docs, :para_docs_path)
+      prev_include = Application.get_env(:bot_army_internal_docs, :para_include)
+      prev_exclude = Application.get_env(:bot_army_internal_docs, :para_exclude)
 
       on_exit(fn ->
         Application.put_env(:bot_army_internal_docs, :default_sources, prev_defaults)
         Application.put_env(:bot_army_internal_docs, :para_docs_path, prev_para_path)
+        Application.put_env(:bot_army_internal_docs, :para_include, prev_include)
+        Application.put_env(:bot_army_internal_docs, :para_exclude, prev_exclude)
       end)
 
       :ok
@@ -62,6 +66,31 @@ defmodule DocSourceStoreTest do
                  source["source_type"] == "local_file" and
                  source["name"] == "personal_os_docs"
              end)
+    end
+
+    test "a bounded para source carries its include and exclude paths" do
+      tmp =
+        Path.join(
+          System.tmp_dir!(),
+          "internal_docs_para_test_#{System.unique_integer([:positive])}"
+        )
+
+      para_path = Path.join(tmp, "docs/personal_os")
+      File.mkdir_p!(para_path)
+
+      Application.put_env(:bot_army_internal_docs, :default_sources, [])
+      Application.put_env(:bot_army_internal_docs, :para_docs_path, para_path)
+      Application.put_env(:bot_army_internal_docs, :para_include, ["projects", "areas"])
+      Application.put_env(:bot_army_internal_docs, :para_exclude, [".obsidian"])
+
+      source =
+        DocSourceStore.bootstrap_sources()
+        |> Enum.find(&(&1["name"] == "personal_os_docs"))
+
+      assert source["metadata"] == %{
+               "include" => ["projects", "areas"],
+               "exclude" => [".obsidian"]
+             }
     end
 
     test "does not duplicate location when para path is already configured" do

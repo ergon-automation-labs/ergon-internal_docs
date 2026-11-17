@@ -35,10 +35,35 @@ if System.get_env("BOT_ARMY_INTERNAL_DOCS_DEFAULT_SOURCES") do
   end
 end
 
-if System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH") do
-  config :bot_army_internal_docs,
-         :para_docs_path,
-         System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH")
+case System.get_env("BOT_ARMY_INTERNAL_DOCS_PARA_PATH") do
+  path when is_binary(path) and path != "" ->
+    config :bot_army_internal_docs, :para_docs_path, path
+
+  _ ->
+    :ok
+end
+
+parse_paths = fn raw ->
+  case Jason.decode(raw) do
+    {:ok, paths} when is_list(paths) ->
+      Enum.filter(paths, &is_binary/1)
+
+    _ ->
+      raw
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+  end
+end
+
+for {env, key} <- [
+      {"BOT_ARMY_INTERNAL_DOCS_PARA_INCLUDE", :para_include},
+      {"BOT_ARMY_INTERNAL_DOCS_PARA_EXCLUDE", :para_exclude}
+    ] do
+  case System.get_env(env) do
+    nil -> :ok
+    raw -> config :bot_army_internal_docs, key, parse_paths.(raw)
+  end
 end
 
 # Graph database configuration at runtime (postgres-age, port 30002)

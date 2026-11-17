@@ -194,10 +194,32 @@ defmodule BotArmyInternalDocs.Stores.DocSourceStore do
         "location" => expanded,
         "name" => "personal_os_docs",
         "category" => "personal_os",
-        "tags" => ["para", "personal_os", "fractional"]
+        "tags" => ["para", "personal_os", "fractional"],
+        "metadata" => para_metadata()
       }
     else
       nil
     end
+  end
+
+  defp para_metadata do
+    include = path_list(:para_include)
+    exclude = path_list(:para_exclude)
+
+    %{}
+    |> put_paths("include", include)
+    |> put_paths("exclude", exclude)
+  end
+
+  defp put_paths(metadata, _key, []), do: metadata
+  defp put_paths(metadata, key, paths), do: Map.put(metadata, key, paths)
+
+  defp path_list(key) do
+    :bot_army_internal_docs
+    |> Application.get_env(key, [])
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
   end
 end

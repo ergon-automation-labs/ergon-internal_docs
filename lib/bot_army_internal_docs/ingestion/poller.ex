@@ -108,7 +108,7 @@ defmodule BotArmyInternalDocs.Ingestion.Poller do
   end
 
   defp fetch(%{source_type: "local_file"} = source) do
-    LocalFile.fetch(source.location)
+    LocalFile.fetch(source.location, source.metadata || %{})
   end
 
   defp fetch(%{source_type: "github_wiki"} = source) do
