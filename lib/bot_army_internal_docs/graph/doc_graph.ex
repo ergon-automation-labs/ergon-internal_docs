@@ -33,16 +33,25 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
   end
 
   def upsert_chunk_node(id, heading, properties \\ %{}) do
-    heading_str = heading || ""
-    chunk_index = properties[:chunk_index] || 0
     enrichment_status = properties[:enrichment_status] || "pending"
 
     cypher =
       "MERGE (c:DocChunk {id: '#{escape_string(id)}'}) " <>
-        "SET c.heading = '#{escape_string(heading_str)}', " <>
-        "c.chunk_index = #{chunk_index}, " <>
-        "c.enrichment_status = '#{escape_string(enrichment_status)}', " <>
+        "SET c.enrichment_status = '#{escape_string(enrichment_status)}', " <>
         "c.updated_at = timestamp()"
+
+    cypher =
+      if is_binary(heading) do
+        cypher <> ", c.heading = '#{escape_string(heading)}'"
+      else
+        cypher
+      end
+
+    cypher =
+      case properties[:chunk_index] do
+        index when is_integer(index) -> cypher <> ", c.chunk_index = #{index}"
+        _ -> cypher
+      end
 
     case run_cypher(cypher) do
       {:ok, _} ->
