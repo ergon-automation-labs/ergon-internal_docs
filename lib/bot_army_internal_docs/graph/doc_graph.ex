@@ -53,6 +53,20 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
         _ -> cypher
       end
 
+    cypher =
+      if is_binary(properties[:path]) do
+        cypher <> ", c.path = '#{escape_string(properties[:path])}'"
+      else
+        cypher
+      end
+
+    cypher =
+      if is_binary(properties[:name]) do
+        cypher <> ", c.name = '#{escape_string(properties[:name])}'"
+      else
+        cypher
+      end
+
     case run_cypher(cypher) do
       {:ok, _} ->
         :ok
@@ -123,6 +137,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     MATCH (d)-[:HAS_CHUNK]->(sibling:DocChunk)
     WHERE sibling.chunk_index >= target.chunk_index - 2
       AND sibling.chunk_index <= target.chunk_index + 2
+      AND sibling.path = target.path
     RETURN d.id, d.name, d.location, d.source_type,
            sibling.id, sibling.heading, sibling.chunk_index
     """

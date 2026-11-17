@@ -151,7 +151,13 @@ defmodule BotArmyInternalDocs.Ingestion.Chunker do
   defp sync_chunk_to_graph(source_id, name, path, chunk, heading, chunk_index) do
     Task.start(fn ->
       DocGraph.upsert_doc_node(source_id, name, %{path: path})
-      DocGraph.upsert_chunk_node(chunk.id, heading, %{chunk_index: chunk_index})
+
+      DocGraph.upsert_chunk_node(chunk.id, heading, %{
+        chunk_index: chunk_index,
+        path: path,
+        name: name
+      })
+
       DocGraph.create_relationship(source_id, chunk.id, "HAS_CHUNK", %{})
     end)
   end
