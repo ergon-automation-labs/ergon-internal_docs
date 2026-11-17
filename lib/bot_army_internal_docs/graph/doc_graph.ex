@@ -81,7 +81,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
   def keyword_search(query, limit) do
     # Graph: match headings via Cypher
     cypher =
-      "MATCH (c:DocChunk) WHERE c.heading CONTAINS '#{escape_string(query)}' RETURN c.id::text LIMIT #{limit}"
+      "MATCH (c:DocChunk) WHERE c.heading CONTAINS '#{escape_string(query)}' RETURN c.id LIMIT #{limit}"
 
     sql =
       "SELECT chunk_id::text FROM cypher('knowledge', $cydoc$#{cypher}$cydoc$) AS (chunk_id agtype)"
@@ -114,8 +114,8 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     MATCH (d)-[:HAS_CHUNK]->(sibling:DocChunk)
     WHERE sibling.chunk_index >= target.chunk_index - 2
       AND sibling.chunk_index <= target.chunk_index + 2
-    RETURN d.id::text, d.name::text, d.location::text, d.source_type::text,
-           sibling.id::text, sibling.heading::text, sibling.chunk_index::text
+    RETURN d.id, d.name, d.location, d.source_type,
+           sibling.id, sibling.heading, sibling.chunk_index
     """
 
     sql =
