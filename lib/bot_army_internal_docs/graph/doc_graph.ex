@@ -84,7 +84,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
       "MATCH (c:DocChunk) WHERE c.heading CONTAINS '#{escape_string(query)}' RETURN c.id::text LIMIT #{limit}"
 
     sql =
-      "SELECT chunk_id::text FROM cypher('knowledge', '#{escape_string(cypher)}') AS (chunk_id agtype)"
+      "SELECT chunk_id::text FROM cypher('knowledge', $cydoc$#{cypher}$cydoc$) AS (chunk_id agtype)"
 
     graph_ids =
       case GraphRepo.query(sql) do
@@ -119,7 +119,7 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     """
 
     sql =
-      "SELECT doc_id::text, doc_name::text, loc::text, stype::text, sib_id::text, sib_heading::text, sib_idx::text FROM cypher('knowledge', '#{escape_string(cypher)}') AS (doc_id agtype, doc_name agtype, loc agtype, stype agtype, sib_id agtype, sib_heading agtype, sib_idx agtype)"
+      "SELECT doc_id::text, doc_name::text, loc::text, stype::text, sib_id::text, sib_heading::text, sib_idx::text FROM cypher('knowledge', $cydoc$#{cypher}$cydoc$) AS (doc_id agtype, doc_name agtype, loc agtype, stype agtype, sib_id agtype, sib_heading agtype, sib_idx agtype)"
 
     case GraphRepo.query(sql) do
       {:ok, result} ->
@@ -182,12 +182,13 @@ defmodule BotArmyInternalDocs.Graph.DocGraph do
     end
   end
 
-  # Apache AGE parses the Cypher argument at SQL parse time, so a bind
-  # parameter (`$1`) is rejected with "a dollar-quoted string constant is
-  # expected". Interpolate the Cypher into a SQL literal instead and let
-  # `escape_string/1` double any quotes inside it.
+  # Apache AGE parses the Cypher argument at SQL parse time and requires a
+  # dollar-quoted string; a bind parameter (`$1`) is rejected. Cast the agtype
+  # result to text so Postgrex's default types can decode it.
   defp run_cypher(cypher) do
-    sql = "SELECT * FROM cypher('knowledge', '#{escape_string(cypher)}') AS (result agtype)"
+    sql =
+      "SELECT result::text FROM cypher('knowledge', $cydoc$#{cypher}$cydoc$) AS (result agtype)"
+
     GraphRepo.query(sql)
   end
 
